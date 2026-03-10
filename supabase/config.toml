@@ -1,0 +1,5 @@
+
+
+[auth.email.template.signup_confirmation]
+subject = "Konfirmasi Akun Anda di Tugasku!"
+content_path = "./templates/signup_confirmation.html"

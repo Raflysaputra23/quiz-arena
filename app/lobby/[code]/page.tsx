@@ -1,0 +1,252 @@
+"use client"
+
+import { use, useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Copy, Play, Users, Zap, Loader2, Gamepad2, Eye, Gauge, Skull, Sparkles } from "lucide-react";
+import { useQuiz } from "@/hooks/useQuiz";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { toastError } from "@/lib/toast";
+import { useRouter } from "next/navigation";
+
+const MODES = [
+    { id: "normal", label: "Normal", icon: Sparkles, desc: "Mode standar, jawab sesuai waktu", color: "text-primary" },
+    { id: "speed", label: "Speed Round", icon: Gauge, desc: "Waktu berkurang setiap soal!", color: "text-warning" },
+    { id: "survival", label: "Survival", icon: Skull, desc: "Salah = tersingkir!", color: "text-destructive" },
+];
+
+const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
+    const { code } = use(params);
+    const { currentRoom, isHost, hostPlaying, setHostPlaying, startQuiz, loadRoomByCode } = useQuiz();
+    const [loading, setLoading] = useState(false);
+    const [starting, setStarting] = useState(false);
+    const [selectedMode, setSelectedMode] = useState("normal");
+    const router = useRouter();
+
+    useEffect(() => {
+        (async() => {
+            if (!currentRoom && code) {
+                setLoading(true);
+                loadRoomByCode(code).then((found) => {
+                    if (!found) {
+                        toastError("Room tidak ditemukan!");
+                        router.push("/");
+                    }
+                    setLoading(false);
+                });
+            }
+        })()
+    }, [code]);
+
+    useEffect(() => {
+        if (currentRoom?.status === "playing" && code) {
+            router.push(`/play/${code}`);
+        }
+        if (currentRoom?.status === "finished" && code) {
+            router.push(`/results/${code}`);
+        }
+    }, [currentRoom?.status, code, router]);
+
+    const handleCopy = () => {
+        if (code) {
+            navigator.clipboard.writeText(code);
+            toast.success("Kode disalin!");
+        }
+    };
+
+    const handleStart = async () => {
+        setStarting(true);
+        await startQuiz(selectedMode);
+        setStarting(false);
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen quiz-pattern flex items-center justify-center">
+                <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full"
+                />
+            </div>
+        );
+    }
+
+    if (!currentRoom || !code) return null;
+
+    return (
+        <div className="min-h-screen quiz-pattern flex flex-col items-center justify-center p-6">
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="max-w-lg w-full space-y-6 text-center"
+            >
+                <div className="space-y-2">
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 200 }}
+                        className="flex items-center justify-center gap-2 mb-4"
+                    >
+                        <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
+                            <Zap className="w-6 h-6 text-primary-foreground" />
+                        </div>
+                        <span className="font-poppins font-bold text-xl text-foreground">QuizArena</span>
+                    </motion.div>
+                    <h1 className="text-2xl font-poppins font-bold text-foreground">{currentRoom.quiz.title}</h1>
+                    <p className="text-muted-foreground">{currentRoom.quiz.questions.length} soal</p>
+                </div>
+
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="glass rounded-2xl p-6 space-y-3"
+                >
+                    <p className="text-sm text-muted-foreground">Kode Game</p>
+                    <div
+                        className="flex items-center justify-center gap-3 cursor-pointer group"
+                        onClick={handleCopy}
+                    >
+                        <span className="text-4xl font-poppins font-bold tracking-[0.3em] text-gradient">
+                            {code}
+                        </span>
+                        <Copy className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
+                    <p className="text-xs text-muted-foreground">Klik untuk menyalin • Bagikan ke teman-temanmu!</p>
+                </motion.div>
+
+                <div className="glass rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <Users className="w-4 h-4" />
+                        <span className="text-sm">{currentRoom.participants.length} peserta bergabung</span>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-3">
+                        <AnimatePresence>
+                            {currentRoom.participants.map((p, i) => (
+                                <motion.div
+                                    key={p.id}
+                                    initial={{ opacity: 0, scale: 0, y: 20 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    transition={{ delay: i * 0.1, type: "spring" }}
+                                    className="flex flex-col items-center gap-1"
+                                >
+                                    <motion.div
+                                        whileHover={{ scale: 1.2, rotate: 10 }}
+                                        className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-2xl"
+                                    >
+                                        {p.avatar}
+                                    </motion.div>
+                                    <span className="text-xs text-muted-foreground">{p.name}</span>
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+                    {currentRoom.participants.length === 0 && (
+                        <motion.p
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="text-sm text-muted-foreground"
+                        >
+                            Menunggu peserta bergabung...
+                        </motion.p>
+                    )}
+                </div>
+
+                {isHost && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="space-y-4"
+                    >
+                        {/* Game Mode Selection */}
+                        <div className="glass rounded-xl p-4">
+                            <p className="text-sm text-muted-foreground mb-3">Mode Game</p>
+                            <div className="grid grid-cols-3 gap-2">
+                                {MODES.map((mode) => (
+                                    <button
+                                        key={mode.id}
+                                        onClick={() => setSelectedMode(mode.id)}
+                                        className={`flex flex-col items-center gap-1.5 rounded-lg p-3 text-xs font-medium transition-all ${selectedMode === mode.id
+                                                ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                                                : "bg-secondary text-muted-foreground hover:text-foreground"
+                                            }`}
+                                    >
+                                        <mode.icon className="w-4 h-4" />
+                                        <span>{mode.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2">
+                                {MODES.find((m) => m.id === selectedMode)?.desc}
+                            </p>
+                        </div>
+
+                        {/* Host play/spectate toggle */}
+                        <div className="glass rounded-xl p-4">
+                            <p className="text-sm text-muted-foreground mb-3">Mode Host</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setHostPlaying(false)}
+                                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${!hostPlaying
+                                            ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                                            : "bg-secondary text-muted-foreground hover:text-foreground"
+                                        }`}
+                                >
+                                    <Eye className="w-4 h-4" />
+                                    Pengawas
+                                </button>
+                                <button
+                                    onClick={() => setHostPlaying(true)}
+                                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${hostPlaying
+                                            ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                                            : "bg-secondary text-muted-foreground hover:text-foreground"
+                                        }`}
+                                >
+                                    <Gamepad2 className="w-4 h-4" />
+                                    Ikut Bermain
+                                </button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2">
+                                {hostPlaying
+                                    ? "Kamu akan ikut menjawab soal bersama peserta lainnya"
+                                    : "Kamu hanya mengawasi dan mengontrol jalannya quiz"}
+                            </p>
+                        </div>
+
+                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                            <Button
+                                size="lg"
+                                className="bg-gradient-primary text-primary-foreground shadow-glow text-lg px-10 py-6 w-full"
+                                onClick={handleStart}
+                                disabled={starting || (currentRoom.participants.length === 0 && !hostPlaying)}
+                            >
+                                {starting ? (
+                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                                ) : (
+                                    <Play className="w-5 h-5 mr-2" />
+                                )}
+                                Mulai Quiz!
+                            </Button>
+                        </motion.div>
+                    </motion.div>
+                )}
+
+                {!isHost && (
+                    <div className="glass rounded-xl p-4 text-center">
+                        <motion.p
+                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="text-muted-foreground"
+                        >
+                            Menunggu host memulai quiz...
+                        </motion.p>
+                    </div>
+                )}
+            </motion.div>
+        </div>
+    );
+}
+
+export default Lobby;
