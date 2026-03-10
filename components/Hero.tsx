@@ -6,7 +6,7 @@ import { useQuiz } from "@/hooks/useQuiz";
 import { useEffect, useState } from "react";
 import { toastError } from "@/lib/toast";
 import { Button } from "./ui/button";
-import { ArrowRight, ChevronDown, Gamepad2, Plus, Users } from "lucide-react";
+import { ChevronDown, Gamepad2, Loader2, Plus, Users } from "lucide-react";
 import { Input } from "./ui/input";
 
 
@@ -45,7 +45,7 @@ const Hero = () => {
     const handleCreate = () => {
         if (!user) {
             toastError("Silakan login terlebih dahulu!");
-            router.push("/auth");
+            router.push("/login");
             return;
         }
         router.push("/create");
@@ -81,7 +81,7 @@ const Hero = () => {
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary text-sm text-primary"
                     >
                         <Gamepad2 className="w-4 h-4 text-primary" />
-                        Platform Quiz Interaktif #1
+                        Platform Quiz Interaktif #?
                     </motion.div>
 
                     <motion.h1
@@ -176,8 +176,7 @@ const Hero = () => {
                                     onClick={handleJoin}
                                     disabled={joining}
                                 >
-                                    {joining ? "Bergabung..." : "Gabung"}
-                                    <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-all" />
+                                    {joining ? <span className="flex items-center gap-2">Bergabung <Loader2 className="animate-spin" /></span> : "Gabung"}
                                 </Button>
                             </div>
                         </motion.div>

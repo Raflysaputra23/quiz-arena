@@ -40,13 +40,13 @@ const FormLogin = () => {
             <form action={formAction} className="space-y-0">
                 <div className="space-y-2 py-3 relative">
                     <Label className="after:-ml-0.5 after:text-destructive after:content-['*']">Email</Label>
-                    <Input type="email" name='email' value={email} onChange={(e) => setEmail(e.target.value)} className='pr-9' required placeholder="email@contoh.com" />
+                    <Input type="email" name='email' value={email} onChange={(e) => setEmail(e.target.value)} className='pr-9 bg-primary/5' required placeholder="email@contoh.com" />
                     <Mail className='w-5 h-5 absolute right-2 bottom-5' />
                     <p className='absolute bottom-0 left-0.5 text-sm text-destructive'>{state && state.error?.email}</p>
                 </div>
                 <div className="space-y-2 py-3 relative mb-2">
                     <Label className="after:-ml-0.5 after:text-destructive after:content-['*']">Password</Label>
-                    <Input type={showPassword ? "text" : "password"} name='password' value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" />
+                    <Input type={showPassword ? "text" : "password"} name='password' value={password} className='pr-9 bg-primary/5' onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" />
                     {showPassword ? <Eye onClick={() => setShowPassword(false)} className='w-5 h-5 absolute right-2 bottom-5' /> : <EyeClosed onClick={() => setShowPassword(true)} className='w-5 h-5 absolute right-2 bottom-5' />}
                     <p className='absolute bottom-0 left-0.5 text-sm text-destructive'>{state && state.error?.password}</p>
                 </div>

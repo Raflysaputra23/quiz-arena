@@ -7,6 +7,7 @@ import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
 import { toastSuccess } from "@/lib/toast";
 import { useEffect, useState } from "react";
+import LoadingScreen from "./LoadingScreen";
 
 const Navbar = () => {
     const { user, profile, signOut, loading: authLoading } = useAuth();
@@ -21,6 +22,8 @@ const Navbar = () => {
        document.addEventListener("scroll", handleScrolled);
        return () => document.removeEventListener("scroll", handleScrolled);
     }, []);
+
+    if (authLoading) return <LoadingScreen />
 
     return (
         <header className={`fixed top-0 z-50 left-0 right-0 ${scrolled && 'border-b backdrop-blur-2xl'}`}>

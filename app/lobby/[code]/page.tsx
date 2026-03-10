@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Play, Users, Zap, Loader2, Gamepad2, Eye, Gauge, Skull, Sparkles } from "lucide-react";
 import { useQuiz } from "@/hooks/useQuiz";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { toastError } from "@/lib/toast";
+import { toastError, toastSuccess } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 
 const MODES = [
@@ -45,12 +44,12 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
         if (currentRoom?.status === "finished" && code) {
             router.push(`/results/${code}`);
         }
-    }, [currentRoom?.status, code, router]);
+    }, [currentRoom, code, router]);
 
     const handleCopy = () => {
         if (code) {
             navigator.clipboard.writeText(code);
-            toast.success("Kode disalin!");
+            toastSuccess("Kode disalin!");
         }
     };
 
@@ -75,7 +74,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     if (!currentRoom || !code) return null;
 
     return (
-        <div className="min-h-screen quiz-pattern flex flex-col items-center justify-center p-6">
+        <div className="min-h-screen quiz-pattern overflow-hidden flex flex-col items-center justify-center p-6">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -168,9 +167,9 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                                     <button
                                         key={mode.id}
                                         onClick={() => setSelectedMode(mode.id)}
-                                        className={`flex flex-col items-center gap-1.5 rounded-lg p-3 text-xs font-medium transition-all ${selectedMode === mode.id
+                                        className={`flex flex-col items-center cursor-pointer gap-1.5 rounded-lg p-3 text-xs font-medium transition-all ${selectedMode === mode.id
                                                 ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                                                : "bg-secondary text-muted-foreground hover:text-foreground"
+                                                : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                             }`}
                                     >
                                         <mode.icon className="w-4 h-4" />
@@ -189,9 +188,9 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setHostPlaying(false)}
-                                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${!hostPlaying
+                                    className={`flex-1 flex items-center cursor-pointer justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${!hostPlaying
                                             ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                                            : "bg-secondary text-muted-foreground hover:text-foreground"
+                                            : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                         }`}
                                 >
                                     <Eye className="w-4 h-4" />
@@ -199,9 +198,9 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                                 </button>
                                 <button
                                     onClick={() => setHostPlaying(true)}
-                                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${hostPlaying
+                                    className={`flex-1 flex items-center cursor-pointer justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${hostPlaying
                                             ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                                            : "bg-secondary text-muted-foreground hover:text-foreground"
+                                            : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                         }`}
                                 >
                                     <Gamepad2 className="w-4 h-4" />
@@ -218,7 +217,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                             <Button
                                 size="lg"
-                                className="bg-gradient-primary text-primary-foreground shadow-glow text-lg px-10 py-6 w-full"
+                                className="bg-gradient-primary cursor-pointer text-primary-foreground shadow-glow text-lg px-10 py-6 w-full"
                                 onClick={handleStart}
                                 disabled={starting || (currentRoom.participants.length === 0 && !hostPlaying)}
                             >

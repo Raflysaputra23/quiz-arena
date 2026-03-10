@@ -69,27 +69,18 @@ export const formRegisterValidation = async (
   const { namaLengkap, email, password } = validasi.data;
 
   try {
-    const { error, data: dataUser } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: namaLengkap,
         },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_DOMAIN_URL}/dashboard`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_DOMAIN_URL}/`,
       },
     });
 
     if (error) throw error;
-
-    const { error: error2 } = await supabase.from("profiles").insert({
-      id_user: dataUser?.user?.id,
-      nama_lengkap: namaLengkap,
-      email,
-      role: "user",
-    });
-
-    if (error2) throw error2;
 
     return {
         message: "Register berhasil!",
