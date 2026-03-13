@@ -63,6 +63,13 @@ const CreateQuiz = () => {
         if (!user) { router.push("/login"); }
     }, [user, router]);
 
+    function extractJSON(text: string) {
+        return text
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+    }
+
     const resetForm = () => {
         setQType("multiple_choice");
         setQText("");
@@ -83,52 +90,20 @@ const CreateQuiz = () => {
         if (!aiTopic.trim()) { toastError("Masukkan topik quiz!"); return; }
         setAiGenerating(true);
         try {
-            // const { data, error } = await supabase.functions.invoke("generate-quiz", {
-            //     body: { topic: aiTopic.trim(), numQuestions: aiNumQuestions, difficulty: aiDifficulty },
-            // });
-            // if (error) throw error;
-            // if (data?.error) { toastError(data.error); return; }
-            const formdata = new FormData();
-            formdata.append("prompt", `Topik:${aiTopic}, jumlah pertanyaan:${aiNumQuestions}, tingkat kesulitan:${aiDifficulty}`);
-            formdata.append("instruksi", `Anda adalah asissten yang dibuat untuk generate soal Quiz, jika user ingin membuat soal dengan contoh topik, MTK, SAINS, dan apapun itu anda harus membuat soal yang relevan dengan topik yang diberikan, jawaban anda harus berupa string json dan struktur jsonnya harus seperti ini:
- {
-                    title: '',
-                    description: '',
-                    questions: [
-                        {
-                            type: 'multiple_choice',
-                            text: '',
-                            options: [
-                                { label: 'A', text: '' },
-                                { label: 'B', text: '' },
-                                { label: 'C', text: '' },
-                                { label: 'D', text: '' },
-                            ],
-                            correct_answer_label: 'A',
-                            time_limit: 20,
-                            points: 1000,
-                        },
-                    ]
-
-                } 
-nah untuk questions itu soal/pertanyaan nya ya jika user minta 5 soal berarti berikan 5 soal, klo 10 anda berikan 10 soal.dan anda harus menjawab string json aja ya jangan ada kata kata yang lain dan jangan ada markdown kata '''json diawal pokoknya jawab string json aja.
-`);
-
-            const response = await fetch("https://rafai-chat.vercel.app/api/v1", {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/generate`, {
                 method: "POST",
                 headers: {
-                    "Authorization": "Bearer f7cc21a48bbc604f64df6d4014f55e45eefd343bbbd2c921821924a667cd4b8a"
+                    "Content-Type": "application/json",
                 },
-                body: formdata
+                body: JSON.stringify({ topik: aiTopic.trim(), jumlah: aiNumQuestions, level: aiDifficulty }),
             });
 
-            if (response.status !== 200) throw new Error(`RafAI sedang error`);
-            
-            const res = await response.json();
-            const data = JSON.parse(res.response);
+            if (res.status !== 200) throw new Error("Gagal generate quiz!");
+            const response = await res.json();
+            const data = JSON.parse(extractJSON(response.res));
+            console.log(data);
             if (!title.trim() && data.title) setTitle(data.title);
             if (!description.trim() && data.description) setDescription(data.description);
-
             const newQuestions: LocalQuestion[] = (data.questions || []).map((q: any) => {
                 const options: LocalOption[] = (q.options || []).map((o: any, i: number) => ({
                     id: o.label.toLowerCase(),
@@ -147,7 +122,7 @@ nah untuk questions itu soal/pertanyaan nya ya jika user minta 5 soal berarti be
             });
 
             setQuestions(prev => [...prev, ...newQuestions]);
-            toastSuccess(`${newQuestions.length} soal berhasil di-generate!`);
+            toastSuccess(`${newQuestions.length} Soal berhasil di-generate!`);
             setShowAiPanel(false);
         } catch (err: any) {
             console.error(err);
