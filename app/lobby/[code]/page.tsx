@@ -7,6 +7,7 @@ import { useQuiz } from "@/hooks/useQuiz";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { useRouter } from "next/navigation";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const MODES = [
     { id: "normal", label: "Normal", icon: Sparkles, desc: "Mode standar, jawab sesuai waktu", color: "text-primary" },
@@ -16,25 +17,26 @@ const MODES = [
 
 const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
-    const { currentRoom, isHost, hostPlaying, setHostPlaying, startQuiz, loadRoomByCode } = useQuiz();
+    const { currentRoom, isHost, hostPlaying, setHostPlaying, startQuiz, loadRoomByCode, restoreParticipantSession } = useQuiz();
     const [loading, setLoading] = useState(false);
     const [starting, setStarting] = useState(false);
     const [selectedMode, setSelectedMode] = useState("normal");
     const router = useRouter();
 
     useEffect(() => {
-        (async() => {
+        const init = async () => {
+            setLoading(true);
+            await restoreParticipantSession();
             if (!currentRoom && code) {
-                setLoading(true);
-                loadRoomByCode(code).then((found) => {
-                    if (!found) {
-                        toastError("Room tidak ditemukan!");
-                        router.push("/");
-                    }
-                    setLoading(false);
-                });
+                const found = await loadRoomByCode(code);
+                if (!found) {
+                    toastError("Room tidak ditemukan!");
+                    router.push("/");
+                }
             }
-        })()
+            setLoading(false);
+        };
+        if (code) init();
     }, [code]);
 
     useEffect(() => {
@@ -71,7 +73,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
         );
     }
 
-    if (!currentRoom || !code) return null;
+    if (!currentRoom || !code) return <LoadingScreen />;
 
     return (
         <div className="min-h-screen quiz-pattern overflow-hidden flex flex-col items-center justify-center p-6">
@@ -168,8 +170,8 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                                         key={mode.id}
                                         onClick={() => setSelectedMode(mode.id)}
                                         className={`flex flex-col items-center cursor-pointer gap-1.5 rounded-lg p-3 text-xs font-medium transition-all ${selectedMode === mode.id
-                                                ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                                                : "bg-primary/10 text-muted-foreground hover:text-foreground"
+                                            ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                                            : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                             }`}
                                     >
                                         <mode.icon className="w-4 h-4" />
@@ -189,8 +191,8 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                                 <button
                                     onClick={() => setHostPlaying(false)}
                                     className={`flex-1 flex items-center cursor-pointer justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${!hostPlaying
-                                            ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                                            : "bg-primary/10 text-muted-foreground hover:text-foreground"
+                                        ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                                        : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                         }`}
                                 >
                                     <Eye className="w-4 h-4" />
@@ -199,8 +201,8 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                                 <button
                                     onClick={() => setHostPlaying(true)}
                                     className={`flex-1 flex items-center cursor-pointer justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${hostPlaying
-                                            ? "bg-gradient-primary text-primary-foreground shadow-glow"
-                                            : "bg-primary/10 text-muted-foreground hover:text-foreground"
+                                        ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                                        : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                         }`}
                                 >
                                     <Gamepad2 className="w-4 h-4" />

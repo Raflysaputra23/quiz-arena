@@ -3,7 +3,6 @@
 
 import { createClient } from "@/supabase/client";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
-import { useAuth } from "./useAuth";
 
 export type QuestionType = "multiple_choice" | "short_answer";
 
@@ -62,41 +61,73 @@ interface QuizContextType {
     joinRoom: (code: string, name: string) => Promise<boolean>;
     startQuiz: (mode?: string) => Promise<void>;
     nextQuestion: () => Promise<void>;
-    submitAnswer: (answer: string) => Promise<void>;
+    submitAnswer: ({answer, doublePoints}: { answer: string; doublePoints: boolean }) => Promise<void>;
     setCurrentRoom: (room: Room | null) => void;
     loadRoomByCode: (code: string) => Promise<boolean>;
+    restoreParticipantSession: () => Promise<boolean>;
+    clearParticipantSession: () => void;
 }
 
 const QuizContext = createContext<QuizContextType | null>(null);
 
 const AVATARS = ["🦊", "🐱", "🐶", "🐸", "🦁", "🐼", "🐨", "🐯", "🦄", "🐙"];
 
+const PARTICIPANT_STORAGE_KEY = "quizarena_participant";
+const ROOM_CODE_STORAGE_KEY = "quizarena_room_code";
+
+function saveParticipantToStorage(participant: Participant | null, roomCode?: string) {
+    if (participant) {
+        sessionStorage.setItem(PARTICIPANT_STORAGE_KEY, JSON.stringify(participant));
+        if (roomCode) sessionStorage.setItem(ROOM_CODE_STORAGE_KEY, roomCode);
+    } else {
+        sessionStorage.removeItem(PARTICIPANT_STORAGE_KEY);
+        sessionStorage.removeItem(ROOM_CODE_STORAGE_KEY);
+    }
+}
+
+function loadParticipantFromStorage(): { participant: Participant | null; roomCode: string | null } {
+    try {
+        const raw = sessionStorage.getItem(PARTICIPANT_STORAGE_KEY);
+        const roomCode = sessionStorage.getItem(ROOM_CODE_STORAGE_KEY);
+        if (raw) return { participant: JSON.parse(raw), roomCode };
+    } catch { }
+    return { participant: null, roomCode: null };
+}
+
 export function QuizProvider({ children }: { children: React.ReactNode }) {
     const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
-    const { user } = useAuth();
-    const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
+    const [currentParticipant, setCurrentParticipantState] = useState<Participant | null>(null);
     const [isHost, setIsHost] = useState(false);
     const [hostPlaying, setHostPlaying] = useState(false);
     const subscriptionsRef = useRef<any[]>([]);
-    const supabaseRef = useRef(createClient());
+    const supaRef = useRef(createClient());
+
+    // Wrapper to also persist to sessionStorage
+    const setCurrentParticipant = useCallback((valOrFn: Participant | null | ((prev: Participant | null) => Participant | null)) => {
+        setCurrentParticipantState((prev) => {
+            const next = typeof valOrFn === "function" ? valOrFn(prev) : valOrFn;
+            saveParticipantToStorage(next);
+            return next;
+        });
+    }, []);
 
     useEffect(() => {
-        const supabase = supabaseRef.current;
+        const supabase = supaRef.current;
         return () => {
             subscriptionsRef.current.forEach((sub) => supabase.removeChannel(sub));
         };
     }, []);
 
-    const subscribeToSession = useCallback(async (sessionId: string) => {
-        const supabase = supabaseRef.current;
-        const sessionChannel = await supabase
+    const subscribeToSession = useCallback((sessionId: string) => {
+        const supabase = supaRef.current;
+        const sessionChannel = supabase
             .channel(`session-${sessionId}`)
             .on("postgres_changes", {
                 event: "UPDATE",
                 schema: "public",
                 table: "quiz_sessions",
                 filter: `id=eq.${sessionId}`,
-            }, (payload: any) => {
+            }, (payload) => {
                 const data = payload.new as any;
                 setCurrentRoom((prev) => {
                     if (!prev) return prev;
@@ -120,7 +151,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 schema: "public",
                 table: "session_participants",
                 filter: `session_id=eq.${sessionId}`,
-            }, (payload: any) => {
+            }, (payload) => {
                 const p = payload.new as any;
                 setCurrentRoom((prev) => {
                     if (!prev) return prev;
@@ -193,7 +224,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const loadRoomByCode = useCallback(async (code: string): Promise<boolean> => {
-        const supabase = supabaseRef.current;
+        const supabase = supaRef.current;
         const { data: session } = await supabase
             .from("quiz_sessions")
             .select("*, quizzes(*, questions(*, question_options(*)))")
@@ -249,18 +280,19 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             mode: (session as any).mode || "normal",
         };
 
+        const { data: { user } } = await supabase.auth.getUser();
         setIsHost(user?.id === session.host_id);
         setCurrentRoom(room);
         subscribeToSession(session.id);
         return true;
-    }, [subscribeToSession, user]);
+    }, [subscribeToSession]);
 
     const createAndStartSession = useCallback(async (quizId: string, roomCode: string, userId: string): Promise<string> => {
         const newCode = Array.from({ length: 6 }, () =>
             "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
         ).join("");
 
-        const supabase = supabaseRef.current;
+        const supabase = supaRef.current;
         const { data, error } = await supabase
             .from("quiz_sessions")
             .insert({ quiz_id: quizId, host_id: userId, room_code: newCode, status: "waiting" })
@@ -277,8 +309,8 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     const joinRoom = useCallback(async (code: string, name: string): Promise<boolean> => {
         const loaded = await loadRoomByCode(code);
         if (!loaded) return false;
+        const supabase = supaRef.current;
 
-        const supabase = supabaseRef.current;
         const { data: session } = await supabase
             .from("quiz_sessions")
             .select("id, status")
@@ -314,7 +346,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
 
     const joinRoomAsHost = useCallback(async (sessionId: string, name: string): Promise<boolean> => {
         const avatar = "👑";
-        const supabase = supabaseRef.current;
+        const supabase = supaRef.current;
         const { data: participant, error } = await supabase
             .from("session_participants")
             .insert({ session_id: sessionId, guest_name: name, avatar })
@@ -336,10 +368,11 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
 
     const startQuiz = useCallback(async (mode?: string) => {
         if (!currentRoom) return;
+        const supabase = supaRef.current;
 
-        const supabase = supabaseRef.current;
         // If host wants to play, join as participant first
         if (hostPlaying && !currentParticipant) {
+            const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data: profile } = await supabase
                     .from("profiles")
@@ -359,12 +392,12 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 mode: mode || "normal",
             })
             .eq("id", currentRoom.sessionId);
-    }, [currentRoom, hostPlaying, currentParticipant, joinRoomAsHost, user]);
+    }, [currentRoom, hostPlaying, currentParticipant, joinRoomAsHost]);
 
     const nextQuestion = useCallback(async () => {
         if (!currentRoom) return;
         const nextIdx = currentRoom.currentQuestionIndex + 1;
-        const supabase = supabaseRef.current;
+        const supabase = supaRef.current;
         if (nextIdx >= currentRoom.quiz.questions.length) {
             await supabase
                 .from("quiz_sessions")
@@ -381,10 +414,11 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         }
     }, [currentRoom]);
 
-    const submitAnswer = useCallback(async (answer: string) => {
+    const submitAnswer = useCallback(async ({  answer, doublePoints }: { answer: string; doublePoints: boolean }) => {
         if (!currentRoom || !currentParticipant) return;
         const question = currentRoom.quiz.questions[currentRoom.currentQuestionIndex];
         if (!question) return;
+        const supabase = supaRef.current;
 
         const timeTaken = (Date.now() - currentRoom.questionStartTime) / 1000;
 
@@ -396,9 +430,9 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         }
 
         const timeBonus = correct ? Math.max(0, Math.round((1 - timeTaken / question.timeLimit) * question.points * 0.5)) : 0;
-        const points = correct ? question.points + timeBonus : 0;
+        let points = correct ? question.points + timeBonus : 0;
+        if (doublePoints) points *= 2;
 
-        const supabase = supabaseRef.current;
         await supabase.from("participant_answers").insert({
             participant_id: currentParticipant.id,
             question_id: question.id,
@@ -423,12 +457,59 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         } : prev);
     }, [currentRoom, currentParticipant]);
 
+    // Restore participant from sessionStorage (call on PlayQuiz/Lobby mount)
+    const restoreParticipantSession = useCallback(async (): Promise<boolean> => {
+        if (currentParticipant) return true; // already have participant
+        const { participant: saved, roomCode } = loadParticipantFromStorage();
+        if (!saved || !saved.id) return false;
+        const supabase = supaRef.current;
+
+        // Verify participant still exists in DB
+        const { data: dbParticipant } = await supabase
+            .from("session_participants")
+            .select("*, quiz_sessions(status, room_code)")
+            .eq("id", saved.id)
+            .single();
+
+        if (!dbParticipant) {
+            saveParticipantToStorage(null);
+            return false;
+        }
+
+        const session = (dbParticipant as any).quiz_sessions;
+        if (!session || session.status === "finished") {
+            saveParticipantToStorage(null);
+            return false;
+        }
+
+        // Restore participant with fresh score from DB
+        const restored: Participant = {
+            ...saved,
+            score: dbParticipant.score,
+        };
+        setCurrentParticipant(restored);
+
+        // Also load the room if not loaded
+        if (!currentRoom && (roomCode || session.room_code)) {
+            await loadRoomByCode(roomCode || session.room_code);
+        }
+
+        return true;
+    }, [currentParticipant, currentRoom, loadRoomByCode, setCurrentParticipant]);
+
+    // Clear participant session (call when navigating to Home / leaving)
+    const clearParticipantSession = useCallback(() => {
+        saveParticipantToStorage(null);
+        setCurrentParticipant(null);
+    }, [setCurrentParticipant]);
+
     return (
         <QuizContext.Provider
             value={{
                 currentRoom, currentParticipant, isHost, hostPlaying, setHostPlaying,
                 createAndStartSession, joinRoom, startQuiz, nextQuestion,
                 submitAnswer, setCurrentRoom, loadRoomByCode,
+                restoreParticipantSession, clearParticipantSession,
             }}
         >
             {children}

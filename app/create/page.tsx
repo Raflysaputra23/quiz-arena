@@ -101,7 +101,6 @@ const CreateQuiz = () => {
             if (res.status !== 200) throw new Error("Gagal generate quiz!");
             const response = await res.json();
             const data = JSON.parse(extractJSON(response.res));
-            console.log(data);
             if (!title.trim() && data.title) setTitle(data.title);
             if (!description.trim() && data.description) setDescription(data.description);
             const newQuestions: LocalQuestion[] = (data.questions || []).map((q: any) => {

@@ -30,7 +30,7 @@ const RESULT_DISPLAY_MS = 1000;
 const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
     const router = useRouter();
-    const { currentRoom, currentParticipant, isHost, hostPlaying, submitAnswer, nextQuestion, loadRoomByCode } = useQuiz();
+    const { currentRoom, currentParticipant, isHost, hostPlaying, restoreParticipantSession, submitAnswer, nextQuestion, loadRoomByCode } = useQuiz();
     const [timeLeft, setTimeLeft] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
     const [shortAnswer, setShortAnswer] = useState("");
@@ -65,12 +65,18 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     // Detect mode
     const mode = (currentRoom)?.mode || "normal";
 
+    // Restore participant session on mount (handles page refresh)
     useEffect(() => {
-        if (!currentRoom && code) {
-            loadRoomByCode(code).then((found) => {
+        const restore = async () => {
+            if (!currentParticipant) {
+                await restoreParticipantSession();
+            }
+            if (!currentRoom && code) {
+                const found = await loadRoomByCode(code);
                 if (!found) router.push("/");
-            });
-        }
+            }
+        };
+        restore();
     }, [code]);
 
     useEffect(() => {
@@ -82,7 +88,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
     // Reset on new question
     useEffect(() => {
-        (async() => {
+        (async () => {
             if (question && currentRoom) {
                 const serverStart = currentRoom.questionStartTime;
                 const elapsed = Math.floor((Date.now() - serverStart) / 1000);
@@ -163,7 +169,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
         if (currentParticipant && canPlay) {
             // Submit actual answer or empty string for timeout
-            await submitAnswer(answer === "__timeout__" ? "" : answer);
+            await submitAnswer(answer === "__timeout__" ? { answer: "", doublePoints: false } : { answer, doublePoints: doublePointsActive });
         }
 
         setShowResult(true);
@@ -185,7 +191,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
             if (remaining <= 5 && remaining > 0 && remaining !== lastTickRef.current) {
                 lastTickRef.current = remaining;
-                if(remaining <= 3) Sounds.tickUrgent()
+                if (remaining <= 3) Sounds.tickUrgent()
                 else Sounds.tick();
             }
 
@@ -485,8 +491,8 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                                         whileHover={{ scale: 1.03, y: -2 }}
                                                         whileTap={{ scale: 0.97 }}
                                                         className={`relative rounded-xl p-5 text-left transition-all border ${optionColors[i].border} overflow-hidden group ${selectedAnswer === opt.id
-                                                                ? "ring-2 ring-primary scale-[1.02]"
-                                                                : "hover:shadow-glow"
+                                                            ? "ring-2 ring-primary scale-[1.02]"
+                                                            : "hover:shadow-glow"
                                                             }`}
                                                         onClick={() => {
                                                             setSelectedAnswer(opt.id);

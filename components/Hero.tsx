@@ -6,7 +6,7 @@ import { useQuiz } from "@/hooks/useQuiz";
 import { useEffect, useState } from "react";
 import { toastError } from "@/lib/toast";
 import { Button } from "./ui/button";
-import { ChevronDown, Gamepad2, Globe2, Loader2, Plus, Users } from "lucide-react";
+import { ChevronDown, Eye, Gamepad2, Globe2, Loader2, Plus, Users } from "lucide-react";
 import { Input } from "./ui/input";
 
 
@@ -15,7 +15,7 @@ const Hero = () => {
     const [name, setName] = useState("");
     const [showJoin, setShowJoin] = useState(false);
     const [joining, setJoining] = useState(false);
-    const { joinRoom, setCurrentRoom } = useQuiz();
+    const { joinRoom, setCurrentRoom, clearParticipantSession } = useQuiz();
     const { user } = useAuth();
     const { scrollYProgress } = useScroll();
     const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
@@ -24,6 +24,7 @@ const Hero = () => {
 
     useEffect(() => {
         setCurrentRoom(null);
+        clearParticipantSession();
     }, [setCurrentRoom]);
 
     const handleJoin = async () => {
@@ -189,6 +190,17 @@ const Hero = () => {
                                     disabled={joining}
                                 >
                                     {joining ? <span className="flex items-center gap-2">Bergabung <Loader2 className="animate-spin" /></span> : "Gabung"}
+                                </Button>
+                                <Button
+                                    variant="primaryOutliner"
+                                    className="border border-primary flex-1 cursor-pointer"
+                                    onClick={() => {
+                                        if (!code.trim()) { toastError("Masukkan kode game!"); return; }
+                                        router.push(`/spectator/${code.trim().toUpperCase()}`);
+                                    }}
+                                >
+                                    <Eye className="w-4 h-4 mr-1" />
+                                    Tonton
                                 </Button>
                             </div>
                         </motion.div>
