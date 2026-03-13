@@ -6,7 +6,7 @@ import { useQuiz } from "@/hooks/useQuiz";
 import { useEffect, useState } from "react";
 import { toastError } from "@/lib/toast";
 import { Button } from "./ui/button";
-import { ChevronDown, Gamepad2, Loader2, Plus, Users } from "lucide-react";
+import { ChevronDown, Gamepad2, Globe2, Loader2, Plus, Users } from "lucide-react";
 import { Input } from "./ui/input";
 
 
@@ -115,8 +115,9 @@ const Hero = () => {
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
                             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                                 <Button
-                                    size="lg"
-                                    className="bg-gradient-primary cursor-pointer text-primary-foreground shadow-glow hover:opacity-90 text-md px-10 py-7 rounded-2xl"
+                                    variant={'primary'}
+                                    size={'lg'}
+                                    className="cursor-pointer shadow-glow px-10 py-7 rounded-2xl"
                                     onClick={() => setShowJoin(true)}
                                 >
                                     <Users className="w-5 h-5 mr-2" />
@@ -132,6 +133,17 @@ const Hero = () => {
                                 >
                                     <Plus className="w-5 h-5 mr-2" />
                                     Buat Quiz Baru
+                                </Button>
+                            </motion.div>
+                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                <Button
+                                    size="lg"
+                                    variant="primary"
+                                    className="border cursor-pointer text-md px-10 py-7 rounded-2xl"
+                                    onClick={() => router.push("/marketplace")}
+                                >
+                                    <Globe2 className="w-5 h-5 mr-2" />
+                                    Marketplace
                                 </Button>
                             </motion.div>
                         </div>

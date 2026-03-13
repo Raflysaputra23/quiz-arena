@@ -3,6 +3,7 @@
 
 import { createClient } from "@/supabase/client";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { useAuth } from "./useAuth";
 
 export type QuestionType = "multiple_choice" | "short_answer";
 
@@ -71,20 +72,23 @@ const QuizContext = createContext<QuizContextType | null>(null);
 const AVATARS = ["🦊", "🐱", "🐶", "🐸", "🦁", "🐼", "🐨", "🐯", "🦄", "🐙"];
 
 export function QuizProvider({ children }: { children: React.ReactNode }) {
-    const supabase = createClient();
     const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
+    const { user } = useAuth();
     const [currentParticipant, setCurrentParticipant] = useState<Participant | null>(null);
     const [isHost, setIsHost] = useState(false);
     const [hostPlaying, setHostPlaying] = useState(false);
     const subscriptionsRef = useRef<any[]>([]);
+    const supabaseRef = useRef(createClient());
 
     useEffect(() => {
+        const supabase = supabaseRef.current;
         return () => {
             subscriptionsRef.current.forEach((sub) => supabase.removeChannel(sub));
         };
     }, []);
 
     const subscribeToSession = useCallback(async (sessionId: string) => {
+        const supabase = supabaseRef.current;
         const sessionChannel = await supabase
             .channel(`session-${sessionId}`)
             .on("postgres_changes", {
@@ -189,6 +193,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const loadRoomByCode = useCallback(async (code: string): Promise<boolean> => {
+        const supabase = supabaseRef.current;
         const { data: session } = await supabase
             .from("quiz_sessions")
             .select("*, quizzes(*, questions(*, question_options(*)))")
@@ -244,18 +249,18 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             mode: (session as any).mode || "normal",
         };
 
-        const { data: { user } } = await supabase.auth.getUser();
         setIsHost(user?.id === session.host_id);
         setCurrentRoom(room);
         subscribeToSession(session.id);
         return true;
-    }, [subscribeToSession]);
+    }, [subscribeToSession, user]);
 
     const createAndStartSession = useCallback(async (quizId: string, roomCode: string, userId: string): Promise<string> => {
         const newCode = Array.from({ length: 6 }, () =>
             "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
         ).join("");
 
+        const supabase = supabaseRef.current;
         const { data, error } = await supabase
             .from("quiz_sessions")
             .insert({ quiz_id: quizId, host_id: userId, room_code: newCode, status: "waiting" })
@@ -273,6 +278,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         const loaded = await loadRoomByCode(code);
         if (!loaded) return false;
 
+        const supabase = supabaseRef.current;
         const { data: session } = await supabase
             .from("quiz_sessions")
             .select("id, status")
@@ -308,6 +314,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
 
     const joinRoomAsHost = useCallback(async (sessionId: string, name: string): Promise<boolean> => {
         const avatar = "👑";
+        const supabase = supabaseRef.current;
         const { data: participant, error } = await supabase
             .from("session_participants")
             .insert({ session_id: sessionId, guest_name: name, avatar })
@@ -330,9 +337,9 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     const startQuiz = useCallback(async (mode?: string) => {
         if (!currentRoom) return;
 
+        const supabase = supabaseRef.current;
         // If host wants to play, join as participant first
         if (hostPlaying && !currentParticipant) {
-            const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data: profile } = await supabase
                     .from("profiles")
@@ -352,11 +359,12 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 mode: mode || "normal",
             })
             .eq("id", currentRoom.sessionId);
-    }, [currentRoom, hostPlaying, currentParticipant, joinRoomAsHost]);
+    }, [currentRoom, hostPlaying, currentParticipant, joinRoomAsHost, user]);
 
     const nextQuestion = useCallback(async () => {
         if (!currentRoom) return;
         const nextIdx = currentRoom.currentQuestionIndex + 1;
+        const supabase = supabaseRef.current;
         if (nextIdx >= currentRoom.quiz.questions.length) {
             await supabase
                 .from("quiz_sessions")
@@ -390,6 +398,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         const timeBonus = correct ? Math.max(0, Math.round((1 - timeTaken / question.timeLimit) * question.points * 0.5)) : 0;
         const points = correct ? question.points + timeBonus : 0;
 
+        const supabase = supabaseRef.current;
         await supabase.from("participant_answers").insert({
             participant_id: currentParticipant.id,
             question_id: question.id,

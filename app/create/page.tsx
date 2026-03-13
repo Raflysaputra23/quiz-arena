@@ -1,8 +1,9 @@
-"use client"
+/* eslint-disable @typescript-eslint/no-explicit-any */
+'use client'
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Globe } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Sparkles, Globe, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import type { QuestionType } from "@/hooks/useQuiz";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
-import Image from "next/image";
 import { toastError, toastSuccess } from "@/lib/toast";
+import Image from "next/image";
 
 interface LocalOption {
     id: string;
@@ -38,7 +39,12 @@ const CreateQuiz = () => {
     const [questions, setQuestions] = useState<LocalQuestion[]>([]);
     const [editingIdx, setEditingIdx] = useState<number | null>(null);
     const [publishing, setPublishing] = useState(false);
-
+    const [isPublic, setIsPublic] = useState(false);
+    const [aiTopic, setAiTopic] = useState("");
+    const [aiNumQuestions, setAiNumQuestions] = useState(5);
+    const [aiDifficulty, setAiDifficulty] = useState("medium");
+    const [aiGenerating, setAiGenerating] = useState(false);
+    const [showAiPanel, setShowAiPanel] = useState(false);
     const [qType, setQType] = useState<QuestionType>("multiple_choice");
     const [qText, setQText] = useState("");
     const [qOptions, setQOptions] = useState<LocalOption[]>([
@@ -73,8 +79,85 @@ const CreateQuiz = () => {
         setEditingIdx(null);
     };
 
+    const handleAiGenerate = async () => {
+        if (!aiTopic.trim()) { toastError("Masukkan topik quiz!"); return; }
+        setAiGenerating(true);
+        try {
+            // const { data, error } = await supabase.functions.invoke("generate-quiz", {
+            //     body: { topic: aiTopic.trim(), numQuestions: aiNumQuestions, difficulty: aiDifficulty },
+            // });
+            // if (error) throw error;
+            // if (data?.error) { toastError(data.error); return; }
+            const formdata = new FormData();
+            formdata.append("prompt", `Topik:${aiTopic}, jumlah pertanyaan:${aiNumQuestions}, tingkat kesulitan:${aiDifficulty}`);
+            formdata.append("instruksi", `Anda adalah asissten yang dibuat untuk generate soal Quiz, jika user ingin membuat soal dengan contoh topik, MTK, SAINS, dan apapun itu anda harus membuat soal yang relevan dengan topik yang diberikan, jawaban anda harus berupa string json dan struktur jsonnya harus seperti ini:
+ {
+                    title: '',
+                    description: '',
+                    questions: [
+                        {
+                            type: 'multiple_choice',
+                            text: '',
+                            options: [
+                                { label: 'A', text: '' },
+                                { label: 'B', text: '' },
+                                { label: 'C', text: '' },
+                                { label: 'D', text: '' },
+                            ],
+                            correct_answer_label: 'A',
+                            time_limit: 20,
+                            points: 1000,
+                        },
+                    ]
+
+                } 
+nah untuk questions itu soal/pertanyaan nya ya jika user minta 5 soal berarti berikan 5 soal, klo 10 anda berikan 10 soal.dan anda harus menjawab string json aja ya jangan ada kata kata yang lain dan jangan ada markdown kata '''json diawal pokoknya jawab string json aja.
+`);
+
+            const response = await fetch("https://rafai-chat.vercel.app/api/v1", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer f7cc21a48bbc604f64df6d4014f55e45eefd343bbbd2c921821924a667cd4b8a"
+                },
+                body: formdata
+            });
+
+            if (response.status !== 200) throw new Error(`RafAI sedang error`);
+            
+            const res = await response.json();
+            const data = JSON.parse(res.response);
+            if (!title.trim() && data.title) setTitle(data.title);
+            if (!description.trim() && data.description) setDescription(data.description);
+
+            const newQuestions: LocalQuestion[] = (data.questions || []).map((q: any) => {
+                const options: LocalOption[] = (q.options || []).map((o: any, i: number) => ({
+                    id: o.label.toLowerCase(),
+                    text: o.text,
+                    label: o.label,
+                }));
+                return {
+                    id: crypto.randomUUID(),
+                    type: q.type as QuestionType,
+                    text: q.text,
+                    options,
+                    correctAnswer: q.type === "multiple_choice" ? (q.correct_answer_label || "a").toLowerCase() : q.correct_answer_label,
+                    timeLimit: q.time_limit || 20,
+                    points: q.points || 1000,
+                };
+            });
+
+            setQuestions(prev => [...prev, ...newQuestions]);
+            toastSuccess(`${newQuestions.length} soal berhasil di-generate!`);
+            setShowAiPanel(false);
+        } catch (err: any) {
+            console.error(err);
+            toastError(err?.message || "Gagal generate quiz!");
+        } finally {
+            setAiGenerating(false);
+        }
+    };
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const supabase = createClient();
         const file = e.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith("image/")) { toastError("File harus berupa gambar!"); return; }
@@ -84,6 +167,7 @@ const CreateQuiz = () => {
         const ext = file.name.split(".").pop();
         const path = `${crypto.randomUUID()}.${ext}`;
 
+        const supabase = createClient();
         const { error } = await supabase.storage.from("question-images").upload(path, file);
         if (error) { toastError("Gagal mengupload gambar!"); setUploading(false); return; }
 
@@ -151,17 +235,16 @@ const CreateQuiz = () => {
         if (!user) { toastError("Silakan login!"); return; }
         if (!title.trim()) { toastError("Beri judul quiz!"); return; }
         if (questions.length === 0) { toastError("Tambahkan minimal 1 soal!"); return; }
-        const supabase = createClient();
 
         setPublishing(true);
         try {
             const roomCode = Array.from({ length: 6 }, () =>
                 "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
             ).join("");
-
+            const supabase = createClient();
             const { data: quiz, error: quizError } = await supabase
                 .from("quizzes")
-                .insert({ id_user: user.id, title: title.trim(), description: description.trim(), room_code: roomCode })
+                .insert({ id_user: user.id, title: title.trim(), description: description.trim(), room_code: roomCode, is_public: isPublic })
                 .select()
                 .single();
 
@@ -231,16 +314,16 @@ const CreateQuiz = () => {
     };
 
     const optionColors = [
-        "bg-primary/10 border border-primary",
-        "bg-green-500/10 border border-green-500",
-        "bg-purple-500/10 border border-purple-500",
-        "bg-red-500/10 border border-red-500",
+        "bg-primary/15 border-primary",
+        "bg-green-500/15 border-green-500",
+        "bg-yellow-500/15 border-yellow-500",
+        "bg-destructive/15 border-destructive",
     ];
 
     return (
         <div className="min-h-screen quiz-pattern overflow-hidden">
             <header className="flex items-center gap-4 p-6 border-b border-border">
-                <Button variant="ghost" className="cursor-pointer" size="icon" onClick={() => router.push("/")}>
+                <Button variant="ghost" size="icon" onClick={() => router.push("/")}>
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <div className="flex items-center gap-2">
@@ -249,14 +332,30 @@ const CreateQuiz = () => {
                     </div>
                     <span className="font-poppins font-bold text-foreground">Buat Quiz</span>
                 </div>
-                <div className="ml-auto">
+                <div className="ml-auto flex items-center gap-3">
                     <Button
-                        variant="primary"
+                        onClick={() => setIsPublic(!isPublic)}
+                        className={`flex items-center gap-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${isPublic ? "bg-accent/20 text-accent hover:bg-accent/40" : "bg-red-500/20 text-red-500 hover:bg-red-500/40"
+                            }`}
+                    >
+                        {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                        {isPublic ? "Publik" : "Privat"}
+                    </Button>
+                    <Button
+                        variant="primaryOutliner"
+                        className="border-primary border"
+                        onClick={() => setShowAiPanel(!showAiPanel)}
+                    >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        AI Generate
+                    </Button>
+                    <Button
+                        className="bg-gradient-primary text-primary-foreground"
                         onClick={handlePublish}
                         disabled={publishing}
                     >
                         {publishing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Publish <Globe className="w-4 h-4 ml-1" />
+                        Publish Quiz
                     </Button>
                 </div>
             </header>
@@ -269,7 +368,7 @@ const CreateQuiz = () => {
                             placeholder="Judul Quiz"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="text-lg lg:text-xl bg-primary/5 h-12"
+                            className="text-xl font-poppins bg-primary/5 h-12"
                             maxLength={100}
                         />
                         <Textarea
@@ -282,8 +381,88 @@ const CreateQuiz = () => {
                         />
                     </div>
 
+                    {/* AI Generate Panel */}
+                    <AnimatePresence>
+                        {showAiPanel && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="overflow-hidden"
+                            >
+                                <div className="glass rounded-2xl p-6 space-y-4 border border-accent/20">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles className="w-5 h-5 text-accent" />
+                                        <h3 className="font-poppins font-bold text-foreground">AI Quiz Generator</h3>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Masukkan topik dan AI akan otomatis generate soal-soal quiz untukmu!
+                                    </p>
+                                    <Input
+                                        placeholder="Topik quiz (misal: Sejarah Indonesia, Matematika SMA, Biologi Sel...)"
+                                        value={aiTopic}
+                                        onChange={(e) => setAiTopic(e.target.value)}
+                                        className="bg-primary/5 h-12"
+                                        maxLength={200}
+                                    />
+                                    <div className="flex gap-4 items-center">
+                                        <div className="flex-1">
+                                            <label className="text-sm text-muted-foreground mb-1 block">Jumlah Soal</label>
+                                            <Input
+                                                type="number"
+                                                value={aiNumQuestions}
+                                                onChange={(e) => setAiNumQuestions(Math.min(20, Math.max(1, Number(e.target.value))))}
+                                                min={1}
+                                                max={20}
+                                                className="bg-primary/5"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-sm text-muted-foreground mb-1 block">Kesulitan</label>
+                                            <div className="flex gap-2">
+                                                {[
+                                                    { id: "easy", label: "Mudah" },
+                                                    { id: "medium", label: "Sedang" },
+                                                    { id: "hard", label: "Sulit" },
+                                                ].map((d) => (
+                                                    <Button
+                                                        key={d.id}
+                                                        onClick={() => setAiDifficulty(d.id)}
+                                                        className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${d.id == 'easy' ? 'hover:bg-green-700' : d.id == 'medium' ? 'hover:bg-yellow-700' : 'hover:bg-red-700'} ${aiDifficulty === d.id
+                                                            ? `${d.id == 'easy' ? 'bg-green-500' : d.id == 'medium' ? 'bg-yellow-500' : 'bg-red-500'} text-primary-foreground`
+                                                            : "bg-secondary text-muted-foreground"
+                                                            }`}
+                                                    >
+                                                        {d.label}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        className="w-full bg-gradient-accent text-accent-foreground"
+                                        onClick={handleAiGenerate}
+                                        disabled={aiGenerating}
+                                    >
+                                        {aiGenerating ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                Generating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="w-4 h-4 mr-2" />
+                                                Generate {aiNumQuestions} Soal
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
                     <div className="glass rounded-2xl p-6 space-y-5">
-                        <div className="flex flex-col lg:flex-row lg:items-center gap-2 items-start justify-between">
+                        <div className="flex items-center justify-between">
                             <h2 className="font-poppins font-semibold text-foreground">
                                 {editingIdx !== null ? `Edit Soal #${editingIdx + 1}` : "Tambah Soal"}
                             </h2>
@@ -291,7 +470,7 @@ const CreateQuiz = () => {
                                 <Button
                                     size="sm"
                                     variant={qType === "multiple_choice" ? "default" : "outline"}
-                                    className={qType === "multiple_choice" ? "bg-gradient-primary text-primary-foreground" : "border-border bg-primary/5"}
+                                    className={qType === "multiple_choice" ? "bg-gradient-primary text-primary-foreground" : "bg-primary/10 border-border"}
                                     onClick={() => setQType("multiple_choice")}
                                 >
                                     <ListChecks className="w-4 h-4 mr-1" /> Pilihan Ganda
@@ -299,7 +478,7 @@ const CreateQuiz = () => {
                                 <Button
                                     size="sm"
                                     variant={qType === "short_answer" ? "default" : "outline"}
-                                    className={qType === "short_answer" ? "bg-gradient-primary text-primary-foreground" : "border-border bg-primary/5"}
+                                    className={qType === "short_answer" ? "bg-gradient-primary text-primary-foreground" : "bg-primary/10 border-border"}
                                     onClick={() => setQType("short_answer")}
                                 >
                                     <Type className="w-4 h-4 mr-1" /> Isian Singkat
@@ -311,7 +490,7 @@ const CreateQuiz = () => {
                             placeholder="Tulis pertanyaan..."
                             value={qText}
                             onChange={(e) => setQText(e.target.value)}
-                            className="bg-primary/5 resize-none h-20 overflow-y-auto lg:text-lg"
+                            className="bg-primary/5 text-lg"
                             rows={3}
                             maxLength={500}
                         />
@@ -321,7 +500,7 @@ const CreateQuiz = () => {
                             <label className="text-sm text-muted-foreground block">Gambar Soal (opsional)</label>
                             {qImageUrl ? (
                                 <div className="relative inline-block">
-                                    <Image src={qImageUrl} alt="Preview" className="max-h-40 rounded-xl border border-border" />
+                                    <Image width={80} height={80} src={qImageUrl} alt="Preview" className="max-h-40 rounded-xl border border-border" />
                                     <button
                                         onClick={() => setQImageUrl("")}
                                         className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:scale-110 transition-transform"
@@ -330,7 +509,7 @@ const CreateQuiz = () => {
                                     </button>
                                 </div>
                             ) : (
-                                <label className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border cursor-pointer bg-primary/5 hover:bg-primary/20 transition-colors">
+                                <label className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border cursor-pointer hover:bg-secondary/50 transition-colors">
                                     {uploading ? (
                                         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                                     ) : (
@@ -351,19 +530,19 @@ const CreateQuiz = () => {
                         </div>
 
                         {qType === "multiple_choice" ? (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-3">
                                 {qOptions.map((opt, i) => (
                                     <div
                                         key={opt.id}
                                         className={`relative rounded-xl p-3 cursor-pointer transition-all ${qCorrect === opt.id
-                                                ? "ring-2 ring-primary shadow-glow"
-                                                : "hover:ring-1 hover:ring-border"
+                                            ? "ring-2 ring-primary shadow-glow"
+                                            : "hover:ring-1 hover:ring-border"
                                             }`}
                                         onClick={() => setQCorrect(opt.id)}
                                     >
-                                        <div className={`absolute inset-0 rounded-xl ${optionColors[i]}`} />
+                                        <div className={`absolute inset-0 rounded-xl border ${optionColors[i]}`} />
                                         <div className="relative flex items-center gap-2">
-                                            <div className={`w-12 lg:w-10 shadow h-8 rounded-full flex items-center justify-center text-xs font-bold ${qCorrect === opt.id ? "bg-green-500 text-primary-foreground" : "bg-primary/20 text-muted-foreground"
+                                            <div className={`w-10 h-8 shadow-[1px_1px_2px_rgba(0,0,0,0.3)] rounded-full flex items-center justify-center text-xs font-bold ${qCorrect === opt.id ? "bg-green-500 text-primary-foreground" : "bg-card text-muted-foreground"
                                                 }`}>
                                                 {qCorrect === opt.id ? <Check className="w-3 h-3" /> : opt.label}
                                             </div>
@@ -423,7 +602,7 @@ const CreateQuiz = () => {
                             {editingIdx !== null && (
                                 <Button variant="outline" className="border-border" onClick={resetForm}>Batal</Button>
                             )}
-                            <Button variant='primary' className="w-full" onClick={addQuestion}>
+                            <Button className="flex-1 bg-gradient-primary text-primary-foreground py-5" onClick={addQuestion}>
                                 <Plus className="w-4 h-4 mr-2" />
                                 {editingIdx !== null ? "Simpan Perubahan" : "Tambah Soal"}
                             </Button>
@@ -438,7 +617,7 @@ const CreateQuiz = () => {
                     </h3>
                     <AnimatePresence>
                         {questions.length === 0 ? (
-                            <div className="glass rounded-xl shadow p-8 text-center text-muted-foreground">
+                            <div className="glass rounded-xl p-8 text-center shadow text-muted-foreground">
                                 <p className="text-sm">Belum ada soal. Tambahkan soal pertamamu!</p>
                             </div>
                         ) : (
@@ -465,10 +644,10 @@ const CreateQuiz = () => {
                                             )}
                                         </div>
                                         <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-yellow-500 hover:bg-yellow-500/50 bg-yellow-500/10 border border-yellow-500 cursor-pointer" onClick={() => editQuestion(i)}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editQuestion(i)}>
                                                 <Type className="w-3 h-3" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/50 bg-destructive/10 border border-destructive cursor-pointer" onClick={() => deleteQuestion(i)}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteQuestion(i)}>
                                                 <Trash2 className="w-3 h-3" />
                                             </Button>
                                         </div>

@@ -1,7 +1,7 @@
 "use client"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/supabase/client";
 
@@ -32,15 +32,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const supabase = createClient();
-
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const supabaseRef = useRef(createClient());
 
     const fetchProfile = async (userId: string) => {
         if (userId) {
+            const supabase = supabaseRef.current;
             const { data } = await supabase
                 .from("profiles")
                 .select("*")
@@ -54,6 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 
     useEffect(() => {
+        const supabase = supabaseRef.current;
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (_event, session) => {
                 setSession(session);
@@ -78,6 +79,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, [user]);
 
     const signUp = async (email: string, password: string, fullName: string) => {
+        const supabase = supabaseRef.current;
         const { error, data } = await supabase.auth.signUp({
             email,
             password,
@@ -94,7 +96,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 email,
                 role: "user",
             });
-            
+
             return { error: error2 };
         }
 
@@ -102,11 +104,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const signIn = async (email: string, password: string) => {
+        const supabase = supabaseRef.current;
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return { error };
     };
 
     const signInWithGoogle = async () => {
+        const supabase = supabaseRef.current;
         const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {
@@ -117,12 +121,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     const signOut = async () => {
+        const supabase = supabaseRef.current;
         await supabase.auth.signOut();
         setProfile(null);
     };
 
     const updateProfile = async (updates: Partial<Profile>) => {
         if (!user) return { error: "Not authenticated" };
+        const supabase = supabaseRef.current;
         const { error } = await supabase
             .from("profiles")
             .update(updates)

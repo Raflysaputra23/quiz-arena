@@ -36,7 +36,7 @@ export async function updateSession(request: NextRequest) {
   const user = data?.claims;
   
   const isLogin = ["/login", "/register"].includes(request.nextUrl.pathname);
-  const isLogout = ["/create"].includes(request.nextUrl.pathname);
+  const isLogout = ["/create",""].includes(request.nextUrl.pathname);
 
   if (isLogout && !user) {
     const url = request.nextUrl.clone();

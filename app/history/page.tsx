@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import { toastError, toastSuccess } from "@/lib/toast";
+import LoadingScreen from "@/components/LoadingScreen";
 
 interface SessionHistory {
     id: string;
@@ -33,7 +34,7 @@ interface QuizHistory {
 
 const History = () => {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [quizzes, setQuizzes] = useState<QuizHistory[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
@@ -100,6 +101,7 @@ const History = () => {
     const deleteQuiz = async (id: string) => {
         const supabase = createClient();
         const { error } = await supabase.from("quizzes").delete().eq("id", id);
+        console.log(error);
         if (error) { toastError("Gagal menghapus quiz"); return; }
         toastSuccess("Quiz dihapus");
         setQuizzes((prev) => prev.filter((q) => q.id !== id));
@@ -144,6 +146,8 @@ const History = () => {
                 return <span className="px-2 py-0.5 rounded-full text-xs bg-secondary text-muted-foreground">Menunggu</span>;
         }
     };
+
+    if(authLoading) return <LoadingScreen />;
 
     return (
         <div className="min-h-screen quiz-pattern overflow-hidden">
