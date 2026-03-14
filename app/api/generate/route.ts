@@ -1,4 +1,4 @@
-import { generateQuis } from "@/lib/rafai";
+import { generateQuis } from "@/lib/generateQuis";
 
 export async function POST(req: Request) {
   const reqBody = await req.json();

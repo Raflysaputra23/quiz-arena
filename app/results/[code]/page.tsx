@@ -186,7 +186,7 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
                   >
                     {player.avatar}
                   </motion.div>
-                  <p className="font-poppins font-bold text-foreground text-sm mb-1">{player.name}</p>
+                  <p className="font-poppins font-bold text-foreground text-sm mb-1 text-center">{player.name}</p>
                   <p className="text-xs text-muted-foreground mb-2">{player.score} pts</p>
                   <motion.div
                     initial={{ height: 0 }}

@@ -10,9 +10,9 @@ import { useRouter } from "next/navigation";
 import LoadingScreen from "@/components/LoadingScreen";
 
 const MODES = [
-    { id: "normal", label: "Normal", icon: Sparkles, desc: "Mode standar, jawab sesuai waktu", color: "text-primary" },
-    { id: "speed", label: "Speed Round", icon: Gauge, desc: "Waktu berkurang setiap soal!", color: "text-warning" },
-    { id: "survival", label: "Survival", icon: Skull, desc: "Salah = tersingkir!", color: "text-destructive" },
+    { id: "normal", label: "Normal", icon: Sparkles, desc: "Mode standar, jawab sesuai waktu", color: "bg-primary/20 text-primary border-primary/50" },
+    { id: "speed", label: "Speed Round", icon: Gauge, desc: "Waktu berkurang setiap soal!", color: "bg-yellow-500/20 text-yellow-500 border-yellow-500/50" },
+    { id: "survival", label: "Survival", icon: Skull, desc: "Salah = tersingkir!", color: "bg-purple-500/20 text-purple-500 border-purple-500/50" },
 ];
 
 const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
@@ -22,6 +22,20 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     const [starting, setStarting] = useState(false);
     const [selectedMode, setSelectedMode] = useState("normal");
     const router = useRouter();
+
+    useEffect(() => {
+            setHostPlaying(false);
+            const joined = sessionStorage.getItem("joinedRoom");
+            const timeout = setTimeout(() => {
+                clearTimeout(timeout);
+                if (!joined && !isHost) {
+                    toastError("Silahkan join lewat form!");
+                    router.push("/");
+                }
+            }, 1000);
+
+            return () => clearTimeout(timeout);
+    }, [isHost, router]);
 
     useEffect(() => {
         const init = async () => {
@@ -37,7 +51,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
             setLoading(false);
         };
         if (code) init();
-    }, [code]);
+    }, [code, currentRoom, router]);
 
     useEffect(() => {
         if (currentRoom?.status === "playing" && code) {
@@ -57,23 +71,12 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
 
     const handleStart = async () => {
         setStarting(true);
+        localStorage.setItem("hostPlaying", hostPlaying ? "true" : "false");
         await startQuiz(selectedMode);
         setStarting(false);
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen quiz-pattern flex items-center justify-center">
-                <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full"
-                />
-            </div>
-        );
-    }
-
-    if (!currentRoom || !code) return <LoadingScreen />;
+    if (!currentRoom || !code || loading) return <LoadingScreen />;
 
     return (
         <div className="min-h-screen quiz-pattern overflow-hidden flex flex-col items-center justify-center p-6">
@@ -162,15 +165,15 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                         className="space-y-4"
                     >
                         {/* Game Mode Selection */}
-                        <div className="glass rounded-xl p-4">
-                            <p className="text-sm text-muted-foreground mb-3">Mode Game</p>
+                        <div className="glass rounded-xl p-4 space-y-4">
+                            <p className="text-sm text-muted-foreground">Mode Game</p>
                             <div className="grid grid-cols-3 gap-2">
                                 {MODES.map((mode) => (
                                     <button
                                         key={mode.id}
                                         onClick={() => setSelectedMode(mode.id)}
-                                        className={`flex flex-col items-center cursor-pointer gap-1.5 rounded-lg p-3 text-xs font-medium transition-all ${selectedMode === mode.id
-                                            ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                                        className={`flex flex-col items-center cursor-pointer border gap-1.5 rounded-lg p-3 text-xs font-medium transition-all ${selectedMode === mode.id
+                                            ? mode.color
                                             : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                             }`}
                                     >
@@ -179,37 +182,37 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                                     </button>
                                 ))}
                             </div>
-                            <p className="text-xs text-muted-foreground mt-2">
+                            <p className={`${MODES.find((m) => m.id === selectedMode)?.color} text-xs inline-block px-3 p-2 rounded-md shadow`}>
                                 {MODES.find((m) => m.id === selectedMode)?.desc}
                             </p>
                         </div>
 
                         {/* Host play/spectate toggle */}
-                        <div className="glass rounded-xl p-4">
-                            <p className="text-sm text-muted-foreground mb-3">Mode Host</p>
+                        <div className="glass rounded-xl p-4 space-y-4">
+                            <p className="text-sm text-muted-foreground">Mode Host</p>
                             <div className="flex gap-2">
-                                <button
+                                <Button
                                     onClick={() => setHostPlaying(false)}
-                                    className={`flex-1 flex items-center cursor-pointer justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${!hostPlaying
+                                    className={`flex-1 flex items-center cursor-pointer justify-center gap-2 rounded-lg p-3 py-5 text-sm font-medium transition-all ${!hostPlaying
                                         ? "bg-gradient-primary text-primary-foreground shadow-glow"
                                         : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                         }`}
                                 >
                                     <Eye className="w-4 h-4" />
                                     Pengawas
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     onClick={() => setHostPlaying(true)}
-                                    className={`flex-1 flex items-center cursor-pointer justify-center gap-2 rounded-lg p-3 text-sm font-medium transition-all ${hostPlaying
+                                    className={`flex-1 flex items-center cursor-pointer justify-center gap-2 rounded-lg p-3 py-5 text-sm font-medium transition-all ${hostPlaying
                                         ? "bg-gradient-primary text-primary-foreground shadow-glow"
                                         : "bg-primary/10 text-muted-foreground hover:text-foreground"
                                         }`}
                                 >
                                     <Gamepad2 className="w-4 h-4" />
                                     Ikut Bermain
-                                </button>
+                                </Button>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-2">
+                            <p className="text-xs text-muted-foreground">
                                 {hostPlaying
                                     ? "Kamu akan ikut menjawab soal bersama peserta lainnya"
                                     : "Kamu hanya mengawasi dan mengontrol jalannya quiz"}

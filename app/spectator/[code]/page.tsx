@@ -198,7 +198,7 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
     const progressPct = room.totalQuestions > 0 ? ((room.currentQuestionIndex + 1) / room.totalQuestions) * 100 : 0;
 
     return (
-        <div className="min-h-screen quiz-pattern flex flex-col">
+        <div className="min-h-screen quiz-pattern flex flex-col overflow-hidden">
             {/* Header */}
             <motion.div
                 initial={{ y: -20, opacity: 0 }}

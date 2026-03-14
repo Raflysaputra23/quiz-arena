@@ -23,8 +23,10 @@ const Hero = () => {
     const router = useRouter();
 
     useEffect(() => {
-        setCurrentRoom(null);
-        clearParticipantSession();
+        (async() => {
+            setCurrentRoom(null);
+            await clearParticipantSession();
+        })()
     }, [setCurrentRoom]);
 
     const handleJoin = async () => {

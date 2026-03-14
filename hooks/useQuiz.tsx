@@ -3,6 +3,7 @@
 
 import { createClient } from "@/supabase/client";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { useAuth } from "./useAuth";
 
 export type QuestionType = "multiple_choice" | "short_answer";
 
@@ -61,7 +62,7 @@ interface QuizContextType {
     joinRoom: (code: string, name: string) => Promise<boolean>;
     startQuiz: (mode?: string) => Promise<void>;
     nextQuestion: () => Promise<void>;
-    submitAnswer: ({answer, doublePoints}: { answer: string; doublePoints: boolean }) => Promise<void>;
+    submitAnswer: ({ answer, doublePoints }: { answer: string; doublePoints: boolean }) => Promise<void>;
     setCurrentRoom: (room: Room | null) => void;
     loadRoomByCode: (code: string) => Promise<boolean>;
     restoreParticipantSession: () => Promise<boolean>;
@@ -74,6 +75,7 @@ const AVATARS = ["🦊", "🐱", "🐶", "🐸", "🦁", "🐼", "🐨", "🐯",
 
 const PARTICIPANT_STORAGE_KEY = "quizarena_participant";
 const ROOM_CODE_STORAGE_KEY = "quizarena_room_code";
+
 
 function saveParticipantToStorage(participant: Participant | null, roomCode?: string) {
     if (participant) {
@@ -95,31 +97,46 @@ function loadParticipantFromStorage(): { participant: Participant | null; roomCo
 }
 
 export function QuizProvider({ children }: { children: React.ReactNode }) {
+    const { user } = useAuth();
     const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
     const [currentParticipant, setCurrentParticipantState] = useState<Participant | null>(null);
     const [isHost, setIsHost] = useState(false);
     const [hostPlaying, setHostPlaying] = useState(false);
     const subscriptionsRef = useRef<any[]>([]);
     const supaRef = useRef(createClient());
+    const answeredParticipantsRef = useRef<Set<string>>(new Set());
+
 
     // Wrapper to also persist to sessionStorage
     const setCurrentParticipant = useCallback((valOrFn: Participant | null | ((prev: Participant | null) => Participant | null)) => {
         setCurrentParticipantState((prev) => {
             const next = typeof valOrFn === "function" ? valOrFn(prev) : valOrFn;
-            saveParticipantToStorage(next);
+            const roomCode = currentRoom?.quiz.roomCode
+            saveParticipantToStorage(next, roomCode)
             return next;
         });
-    }, []);
+    }, [currentRoom]);
 
     useEffect(() => {
         const supabase = supaRef.current;
         return () => {
-            subscriptionsRef.current.forEach((sub) => supabase.removeChannel(sub));
+            subscriptionsRef.current.forEach((sub) => {
+                sub.unsubscribe();
+                supabase.removeChannel(sub);
+            });
         };
     }, []);
 
     const subscribeToSession = useCallback((sessionId: string) => {
         const supabase = supaRef.current;
+
+        // cleanup old channels
+        subscriptionsRef.current.forEach((sub) => {
+            sub.unsubscribe();
+            supabase.removeChannel(sub);
+        });
+        subscriptionsRef.current = [];
+
         const sessionChannel = supabase
             .channel(`session-${sessionId}`)
             .on("postgres_changes", {
@@ -132,6 +149,9 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 setCurrentRoom((prev) => {
                     if (!prev) return prev;
                     const questionChanged = data.current_question_index !== prev.currentQuestionIndex;
+                    if (questionChanged) {
+                        answeredParticipantsRef.current.clear();
+                    }
                     return {
                         ...prev,
                         status: data.status,
@@ -147,30 +167,65 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         const participantChannel = supabase
             .channel(`participants-${sessionId}`)
             .on("postgres_changes", {
-                event: "INSERT",
+                event: "*",
                 schema: "public",
                 table: "session_participants",
                 filter: `session_id=eq.${sessionId}`,
             }, (payload) => {
-                const p = payload.new as any;
-                setCurrentRoom((prev) => {
-                    if (!prev) return prev;
-                    const exists = prev.participants.some((x) => x.id === p.id);
-                    if (exists) return prev;
-                    return {
-                        ...prev,
-                        participants: [...prev.participants, {
-                            id: p.id,
-                            name: p.guest_name || "Player",
-                            avatar: p.avatar,
-                            score: p.score,
-                            streak: 0,
-                            answers: {},
-                        }],
-                    };
-                });
-            })
-            .subscribe();
+                if (payload.eventType === "INSERT") {
+                    const p = payload.new as any;
+                    setCurrentRoom((prev) => {
+                        if (!prev) return prev;
+                        const exists = prev.participants.find((x) => x.id === p.id);
+                        if (exists) return prev;
+                        return {
+                            ...prev,
+                            participants: [...prev.participants, {
+                                id: p.id,
+                                name: p.guest_name || "Player",
+                                avatar: p.avatar,
+                                score: p.score,
+                                streak: 0,
+                                answers: {},
+                            }],
+                        };
+                    });
+                } else if (payload.eventType === "DELETE") {
+                    const p = payload.old as any;
+                    setCurrentRoom((prev) => {
+                        if (!prev) return prev
+
+                        const updatedParticipants =
+                            prev.participants?.filter(x => x.id !== p.id) || []
+
+                        return {
+                            ...prev,
+                            participants: updatedParticipants,
+                            currentQuestionAnswerCount: Math.min(
+                                prev.currentQuestionAnswerCount,
+                                updatedParticipants.length
+                            )
+                        }
+                    });
+                } else if (payload.eventType === "UPDATE") {
+                    const p = payload.new as any;
+
+                    setCurrentRoom((prev) => {
+                        if (!prev) return prev;
+
+                        const updatedParticipants = prev.participants.map((x) =>
+                            x.id === p.id
+                                ? { ...x, score: p.score }
+                                : x
+                        ).sort((a, b) => b.score - a.score);
+
+                        return {
+                            ...prev,
+                            participants: updatedParticipants
+                        };
+                    });
+                }
+            }).subscribe();
 
         const answersChannel = supabase
             .channel(`answers-${sessionId}`)
@@ -178,45 +233,29 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 event: "INSERT",
                 schema: "public",
                 table: "participant_answers",
-            }, async () => {
-                const { data: participants } = await supabase
-                    .from("session_participants")
-                    .select("*")
-                    .eq("session_id", sessionId);
+                filter: `session_id=eq.${sessionId}`
+            }, (payload) => {
+                const answer = payload.new as any;
+                setCurrentRoom((prev) => {
+                    if (!prev) return prev;
 
-                if (participants) {
-                    // Get current session to know current question
-                    const { data: session } = await supabase
-                        .from("quiz_sessions")
-                        .select("*, quizzes(*, questions(*))")
-                        .eq("id", sessionId)
-                        .single();
-
-                    let answerCount = 0;
-                    if (session) {
-                        const quiz = session.quizzes as any;
-                        const questions = (quiz?.questions || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
-                        const currentQ = questions[session.current_question_index];
-                        if (currentQ) {
-                            const participantIds = participants.map((p: any) => p.id);
-                            const { count } = await supabase
-                                .from("participant_answers")
-                                .select("*", { count: "exact", head: true })
-                                .eq("question_id", currentQ.id)
-                                .in("participant_id", participantIds);
-                            answerCount = count || 0;
-                        }
+                    if (answeredParticipantsRef.current.has(answer.participant_id)) {
+                        return prev;
                     }
 
-                    setCurrentRoom((prev) => {
-                        if (!prev) return prev;
-                        const updated = prev.participants.map((p) => {
-                            const fresh = participants.find((d: any) => d.id === p.id);
-                            return fresh ? { ...p, score: fresh.score } : p;
-                        });
-                        return { ...prev, participants: updated, currentQuestionAnswerCount: answerCount };
-                    });
-                }
+                    const exists = prev.participants.some(
+                        p => p.id === answer.participant_id
+                    )
+
+                    if (!exists) return prev;
+
+                    answeredParticipantsRef.current.add(answer.participant_id);
+                    return {
+                        ...prev,
+                        currentQuestionAnswerCount:
+                            prev.currentQuestionAnswerCount + 1
+                    }
+                })
             })
             .subscribe();
 
@@ -280,12 +319,11 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             mode: (session as any).mode || "normal",
         };
 
-        const { data: { user } } = await supabase.auth.getUser();
         setIsHost(user?.id === session.host_id);
         setCurrentRoom(room);
         subscribeToSession(session.id);
         return true;
-    }, [subscribeToSession]);
+    }, [subscribeToSession, user]);
 
     const createAndStartSession = useCallback(async (quizId: string, roomCode: string, userId: string): Promise<string> => {
         const newCode = Array.from({ length: 6 }, () =>
@@ -307,8 +345,6 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     }, [loadRoomByCode]);
 
     const joinRoom = useCallback(async (code: string, name: string): Promise<boolean> => {
-        const loaded = await loadRoomByCode(code);
-        if (!loaded) return false;
         const supabase = supaRef.current;
 
         const { data: session } = await supabase
@@ -320,7 +356,6 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             .single();
 
         if (!session || session.status !== "waiting") return false;
-
         const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
         const { data: participant, error } = await supabase
             .from("session_participants")
@@ -340,9 +375,10 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         });
         setIsHost(false);
 
+        sessionStorage.setItem("joinedRoom", JSON.stringify({ code, participantId: participant.id }));
         await loadRoomByCode(code);
         return true;
-    }, [loadRoomByCode]);
+    }, [loadRoomByCode, setCurrentParticipant]);
 
     const joinRoomAsHost = useCallback(async (sessionId: string, name: string): Promise<boolean> => {
         const avatar = "👑";
@@ -354,32 +390,53 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             .single();
 
         if (error || !participant) return false;
-
-        setCurrentParticipant({
+        sessionStorage.setItem(
+            "joinedRoom",
+            JSON.stringify({
+                code: currentRoom?.quiz.roomCode,
+                participantId: participant.id
+            })
+        )
+        const newParticipant = {
             id: participant.id,
             name,
             avatar,
             score: 0,
             streak: 0,
             answers: {},
-        });
+        }
+
+        setCurrentParticipant(newParticipant);
+        setCurrentRoom((prev) => {
+            if (!prev) return prev
+
+            const exists = prev.participants.some(p => p.id === participant.id)
+            if (exists) return prev
+
+            return {
+                ...prev,
+                participants: [...prev.participants, newParticipant]
+            }
+        })
         return true;
-    }, []);
+    }, [setCurrentParticipant, currentRoom]);
 
     const startQuiz = useCallback(async (mode?: string) => {
         if (!currentRoom) return;
+        if (currentRoom.status !== "waiting") return;
         const supabase = supaRef.current;
 
         // If host wants to play, join as participant first
         if (hostPlaying && !currentParticipant) {
-            const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 const { data: profile } = await supabase
                     .from("profiles")
                     .select("nama_lengkap")
                     .eq("id_user", user.id)
                     .single();
-                await joinRoomAsHost(currentRoom.sessionId, profile?.nama_lengkap || "Host");
+                const joined = await joinRoomAsHost(currentRoom.sessionId, profile?.nama_lengkap || "Host");
+                if (!joined) return
+                await new Promise(r => setTimeout(r, 500));
             }
         }
 
@@ -392,7 +449,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 mode: mode || "normal",
             })
             .eq("id", currentRoom.sessionId);
-    }, [currentRoom, hostPlaying, currentParticipant, joinRoomAsHost]);
+    }, [currentRoom, hostPlaying, currentParticipant, joinRoomAsHost, user]);
 
     const nextQuestion = useCallback(async () => {
         if (!currentRoom) return;
@@ -414,12 +471,13 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         }
     }, [currentRoom]);
 
-    const submitAnswer = useCallback(async ({  answer, doublePoints }: { answer: string; doublePoints: boolean }) => {
+    const submitAnswer = useCallback(async ({ answer, doublePoints }: { answer: string; doublePoints: boolean }) => {
         if (!currentRoom || !currentParticipant) return;
         const question = currentRoom.quiz.questions[currentRoom.currentQuestionIndex];
         if (!question) return;
-        const supabase = supaRef.current;
+        if (currentParticipant.answers[question.id]) return;
 
+        const supabase = supaRef.current;
         const timeTaken = (Date.now() - currentRoom.questionStartTime) / 1000;
 
         let correct = false;
@@ -434,6 +492,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         if (doublePoints) points *= 2;
 
         await supabase.from("participant_answers").insert({
+            session_id: currentRoom.sessionId,
             participant_id: currentParticipant.id,
             question_id: question.id,
             answer,
@@ -442,10 +501,14 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             points_earned: points,
         });
 
-        await supabase
-            .from("session_participants")
-            .update({ score: currentParticipant.score + points })
-            .eq("id", currentParticipant.id);
+        const { error } = await supabase.rpc("increment_score", {
+            participant_id: currentParticipant.id,
+            points
+        });
+
+        if (error) {
+            console.error("increment_score error:", error)
+        }
 
         const newStreak = correct ? (currentParticipant.streak || 0) + 1 : 0;
 
@@ -455,11 +518,11 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             streak: newStreak,
             answers: { ...prev.answers, [question.id]: { answer, time: timeTaken, correct, points } },
         } : prev);
-    }, [currentRoom, currentParticipant]);
+    }, [currentRoom, currentParticipant, setCurrentParticipant]);
 
     // Restore participant from sessionStorage (call on PlayQuiz/Lobby mount)
     const restoreParticipantSession = useCallback(async (): Promise<boolean> => {
-        if (currentParticipant) return true; // already have participant
+        if (currentParticipant && currentRoom) return true; // already have participant
         const { participant: saved, roomCode } = loadParticipantFromStorage();
         if (!saved || !saved.id) return false;
         const supabase = supaRef.current;
@@ -498,9 +561,40 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     }, [currentParticipant, currentRoom, loadRoomByCode, setCurrentParticipant]);
 
     // Clear participant session (call when navigating to Home / leaving)
-    const clearParticipantSession = useCallback(() => {
+    const clearParticipantSession = useCallback(async () => {
+        const joined = sessionStorage.getItem("joinedRoom");
+        if (!joined) return;
+
+        let parsed;
+        try {
+            parsed = JSON.parse(joined);
+        } catch {
+            sessionStorage.removeItem("joinedRoom");
+            return;
+        }
+
+        const { code, participantId } = parsed;
+        if (code && participantId) {
+            const supabase = supaRef.current;
+            const { data: session } = await supabase
+                .from("quiz_sessions")
+                .select("id, status")
+                .eq("room_code", code)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+            if (session && session.status != "finished") {
+                await supabase
+                    .from("session_participants")
+                    .delete()
+                    .eq('id', participantId)
+                    .eq('session_id', session.id);
+            }
+        }
+
         saveParticipantToStorage(null);
         setCurrentParticipant(null);
+        sessionStorage.removeItem("joinedRoom");
     }, [setCurrentParticipant]);
 
     return (

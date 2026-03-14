@@ -1,12 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({
+const RafAI = new GoogleGenAI({
   apiKey: process.env.NEXT_PUBLIC_GEMINI_APIKEY,
 });
 
 export const generateQuis = async (prompt: string) => {
   try {
-    const response = await ai.models.generateContent({
+    const response = await RafAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
@@ -36,7 +36,7 @@ jawaban anda harus berupa string json saja contoh struktur jsonnya seperti ini:
 }
 anda harus menjawab persis seperti itu untuk struktur jsonnya, nanti pengguna akan meminta membuat soal dan mengirimkan topik, jumlah soal, dan levelnya,
 anda harus menjawab sesuai dengan perintah pengguna ya dan anda harus menjawab struktur jsonnya seperti di responSchema.`,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 4080,
         temperature: 0.7,
         responseSchema: {
           type: "object",
@@ -67,7 +67,7 @@ anda harus menjawab sesuai dengan perintah pengguna ya dan anda harus menjawab s
               },
             },
           },
-        },
+        }
       },
     });
     return response.text; 

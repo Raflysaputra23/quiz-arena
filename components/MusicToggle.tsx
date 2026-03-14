@@ -22,7 +22,7 @@ const MusicToggle = () => {
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.9 }}
       onClick={toggle}
-      className="w-9 h-9 rounded-full glass flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+      className="w-9 h-9 rounded-full glass bg-primary/15! border border-primary/30! cursor-pointer flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
       title={playing ? "Matikan musik" : "Nyalakan musik"}
     >
       {playing ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}

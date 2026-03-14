@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Sparkles, Globe, Lock } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Sparkles, Globe, Lock, Minus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ const CreateQuiz = () => {
     const [isPublic, setIsPublic] = useState(false);
     const [aiTopic, setAiTopic] = useState("");
     const [aiNumQuestions, setAiNumQuestions] = useState(5);
-    const [aiDifficulty, setAiDifficulty] = useState("medium");
+    const [aiDifficulty, setAiDifficulty] = useState("easy");
     const [aiGenerating, setAiGenerating] = useState(false);
     const [showAiPanel, setShowAiPanel] = useState(false);
     const [qType, setQType] = useState<QuestionType>("multiple_choice");
@@ -63,11 +63,8 @@ const CreateQuiz = () => {
         if (!user) { router.push("/login"); }
     }, [user, router]);
 
-    function extractJSON(text: string) {
-        return text
-            .replace(/```json/g, "")
-            .replace(/```/g, "")
-            .trim();
+    const extractJSON = (text: string) => {
+        return text.replace(/```json/g, "").replace(/```/g, "").trim();
     }
 
     const resetForm = () => {
@@ -86,6 +83,12 @@ const CreateQuiz = () => {
         setEditingIdx(null);
     };
 
+    const resetFormAI = () => {
+        setAiTopic("");
+        setAiNumQuestions(5);
+        setAiDifficulty("easy");
+    }
+
     const handleAiGenerate = async () => {
         if (!aiTopic.trim()) { toastError("Masukkan topik quiz!"); return; }
         setAiGenerating(true);
@@ -98,23 +101,24 @@ const CreateQuiz = () => {
                 body: JSON.stringify({ topik: aiTopic.trim(), jumlah: aiNumQuestions, level: aiDifficulty }),
             });
 
-            if (res.status !== 200) throw new Error("Gagal generate quiz!");
+            if (res.status !== 200) { toastError("RafAI tidak merespon!"); return; }
             const response = await res.json();
             const data = JSON.parse(extractJSON(response.res));
             if (!title.trim() && data.title) setTitle(data.title);
             if (!description.trim() && data.description) setDescription(data.description);
+
             const newQuestions: LocalQuestion[] = (data.questions || []).map((q: any) => {
-                const options: LocalOption[] = (q.options || []).map((o: any, i: number) => ({
-                    id: o.label.toLowerCase(),
-                    text: o.text,
-                    label: o.label,
+                const options: LocalOption[] = (q.options || []).map((op: any) => ({
+                    id: op.label.toLowerCase(),
+                    text: op.text,
+                    label: op.label,
                 }));
                 return {
                     id: crypto.randomUUID(),
                     type: q.type as QuestionType,
                     text: q.text,
                     options,
-                    correctAnswer: q.type === "multiple_choice" ? (q.correct_answer_label || "a").toLowerCase() : q.correct_answer_label,
+                    correctAnswer: q.type === "multiple_choice" ? q.correct_answer_label.toLowerCase() : q.correct_answer_label,
                     timeLimit: q.time_limit || 20,
                     points: q.points || 1000,
                 };
@@ -123,9 +127,10 @@ const CreateQuiz = () => {
             setQuestions(prev => [...prev, ...newQuestions]);
             toastSuccess(`${newQuestions.length} Soal berhasil di-generate!`);
             setShowAiPanel(false);
-        } catch (err: any) {
-            console.error(err);
-            toastError(err?.message || "Gagal generate quiz!");
+            resetFormAI();
+        } catch (err) {
+            console.log(err);
+            toastError("Gagal generate quiz!");
         } finally {
             setAiGenerating(false);
         }
@@ -133,7 +138,7 @@ const CreateQuiz = () => {
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) return;
+        if (!file) { toastError("File tidak ditemukan!"); return; }
         if (!file.type.startsWith("image/")) { toastError("File harus berupa gambar!"); return; }
         if (file.size > 5 * 1024 * 1024) { toastError("Ukuran file maksimal 5MB!"); return; }
 
@@ -154,7 +159,7 @@ const CreateQuiz = () => {
     const addQuestion = () => {
         if (!qText.trim()) { toastError("Tulis pertanyaan!"); return; }
         if (qType === "multiple_choice") {
-            if (qOptions.some((o) => !o.text.trim())) { toastError("Isi semua opsi!"); return; }
+            if (qOptions.some((op) => !op.text.trim())) { toastError("Isi semua opsi!"); return; }
             if (!qCorrect) { toastError("Pilih jawaban yang benar!"); return; }
         } else {
             if (!qCorrect.trim()) { toastError("Tulis jawaban yang benar!"); return; }
@@ -308,28 +313,12 @@ const CreateQuiz = () => {
                 </div>
                 <div className="ml-auto flex items-center gap-3">
                     <Button
-                        onClick={() => setIsPublic(!isPublic)}
-                        className={`flex items-center gap-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${isPublic ? "bg-accent/20 text-accent hover:bg-accent/40" : "bg-red-500/20 text-red-500 hover:bg-red-500/40"
-                            }`}
-                    >
-                        {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                        {isPublic ? "Publik" : "Privat"}
-                    </Button>
-                    <Button
-                        variant="primaryOutliner"
-                        className="border-primary border"
-                        onClick={() => setShowAiPanel(!showAiPanel)}
-                    >
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        AI Generate
-                    </Button>
-                    <Button
-                        className="bg-gradient-primary text-primary-foreground"
+                        variant={'primary'}
                         onClick={handlePublish}
                         disabled={publishing}
                     >
+                        Publish
                         {publishing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Publish Quiz
                     </Button>
                 </div>
             </header>
@@ -342,14 +331,14 @@ const CreateQuiz = () => {
                             placeholder="Judul Quiz"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            className="text-xl font-poppins bg-primary/5 h-12"
+                            className="text-lg font-poppins bg-primary/5 h-14"
                             maxLength={100}
                         />
                         <Textarea
                             placeholder="Deskripsi (opsional)"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            className="bg-primary/5 resize-none"
+                            className="bg-primary/5 resize-none h-18"
                             rows={2}
                             maxLength={500}
                         />
@@ -379,20 +368,29 @@ const CreateQuiz = () => {
                                         className="bg-primary/5 h-12"
                                         maxLength={200}
                                     />
-                                    <div className="flex gap-4 items-center">
-                                        <div className="flex-1">
-                                            <label className="text-sm text-muted-foreground mb-1 block">Jumlah Soal</label>
-                                            <Input
-                                                type="number"
-                                                value={aiNumQuestions}
-                                                onChange={(e) => setAiNumQuestions(Math.min(20, Math.max(1, Number(e.target.value))))}
-                                                min={1}
-                                                max={20}
-                                                className="bg-primary/5"
-                                            />
+                                    <div className="flex flex-col gap-4 items-center">
+                                        <div className="flex-1 flex flex-col items-center gap-2">
+                                            <label className="text-md text-muted-foreground">Jumlah Soal</label>
+                                            <div className="flex items-center justify-center gap-2">
+                                                <Button size={'icon'} variant={'destructive'} className="cursor-pointer" onClick={() => setAiNumQuestions(Math.max(1, aiNumQuestions - 1))}>
+                                                    <Minus className="w-4 h-4" />
+                                                </Button>
+                                                <Input
+                                                    type="text"
+                                                    value={aiNumQuestions}
+                                                    disabled
+                                                    onChange={(e) => setAiNumQuestions(Number(e.target.value))}
+                                                    min={1}
+                                                    max={20}
+                                                    className="bg-primary/5 w-12 h-12 text-center"
+                                                />
+                                                <Button size={'icon'} variant={'primary'} onClick={() => setAiNumQuestions(Math.max(1, aiNumQuestions + 1))}>
+                                                    <Plus className="w-4 h-4" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                        <div className="flex-1">
-                                            <label className="text-sm text-muted-foreground mb-1 block">Kesulitan</label>
+                                        <div className="flex-1 flex flex-col items-center gap-2">
+                                            <label className="text-md text-muted-foreground">Kesulitan</label>
                                             <div className="flex gap-2">
                                                 {[
                                                     { id: "easy", label: "Mudah" },
@@ -414,7 +412,8 @@ const CreateQuiz = () => {
                                         </div>
                                     </div>
                                     <Button
-                                        className="w-full bg-gradient-accent text-accent-foreground"
+                                        variant={'primary'}
+                                        className="w-full py-5"
                                         onClick={handleAiGenerate}
                                         disabled={aiGenerating}
                                     >
@@ -425,7 +424,7 @@ const CreateQuiz = () => {
                                             </>
                                         ) : (
                                             <>
-                                                <Sparkles className="w-4 h-4 mr-2" />
+                                                <Sparkles className="w-4 h-4 mr-1" />
                                                 Generate {aiNumQuestions} Soal
                                             </>
                                         )}
@@ -434,11 +433,31 @@ const CreateQuiz = () => {
                             </motion.div>
                         )}
                     </AnimatePresence>
-
+                    <div className="space-y-3 glass rounded-xl p-6">
+                        <h1 className="font-semibold font-poppins">Visibility & AI Generate</h1>
+                        <div className="flex items-center justify-center gap-2">
+                            <Button
+                                onClick={() => setIsPublic(!isPublic)}
+                                className={`flex-1 flex items-center gap-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${isPublic ? "bg-accent/20 text-accent border-accent hover:bg-accent/40" : "bg-red-500/20 text-red-500 border-red-500 hover:bg-red-500/40"
+                                    }`}
+                            >
+                                {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                                {isPublic ? "Publik" : "Privat"}
+                            </Button>
+                            <Button
+                                variant="primaryOutliner"
+                                className="flex-1 border border-primary "
+                                onClick={() => setShowAiPanel(!showAiPanel)}
+                            >
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                AI Generate
+                            </Button>
+                        </div>
+                    </div>
                     <div className="glass rounded-2xl p-6 space-y-5">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                             <h2 className="font-poppins font-semibold text-foreground">
-                                {editingIdx !== null ? `Edit Soal #${editingIdx + 1}` : "Tambah Soal"}
+                                 {editingIdx !== null ? `Edit Soal #${editingIdx + 1}` : "Tambah Soal"}
                             </h2>
                             <div className="flex gap-2">
                                 <Button
@@ -464,7 +483,7 @@ const CreateQuiz = () => {
                             placeholder="Tulis pertanyaan..."
                             value={qText}
                             onChange={(e) => setQText(e.target.value)}
-                            className="bg-primary/5 text-lg"
+                            className="bg-primary/5 resize-none h-18"
                             rows={3}
                             maxLength={500}
                         />
@@ -508,7 +527,7 @@ const CreateQuiz = () => {
                                 {qOptions.map((opt, i) => (
                                     <div
                                         key={opt.id}
-                                        className={`relative rounded-xl p-3 cursor-pointer transition-all ${qCorrect === opt.id
+                                        className={`relative col-span-2 lg:col-span-1 rounded-xl p-3 cursor-pointer transition-all ${qCorrect === opt.id
                                             ? "ring-2 ring-primary shadow-glow"
                                             : "hover:ring-1 hover:ring-border"
                                             }`}
@@ -576,8 +595,8 @@ const CreateQuiz = () => {
                             {editingIdx !== null && (
                                 <Button variant="outline" className="border-border" onClick={resetForm}>Batal</Button>
                             )}
-                            <Button className="flex-1 bg-gradient-primary text-primary-foreground py-5" onClick={addQuestion}>
-                                <Plus className="w-4 h-4 mr-2" />
+                            <Button className="flex-1 bg-gradient-primary cursor-pointer text-primary-foreground py-5" onClick={addQuestion}>
+                                <Plus className="w-4 h-4 mr-1" />
                                 {editingIdx !== null ? "Simpan Perubahan" : "Tambah Soal"}
                             </Button>
                         </div>
@@ -618,10 +637,10 @@ const CreateQuiz = () => {
                                             )}
                                         </div>
                                         <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editQuestion(i)}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 bg-yellow-500/10 border border-yellow-500 text-yellow-500 hover:bg-yellow-500/30 hover:text-yellow-600 cursor-pointer" onClick={() => editQuestion(i)}>
                                                 <Type className="w-3 h-3" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteQuestion(i)}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 bg-destructive/10 border border-destructive text-destructive hover:bg-destructive/30 hover:text-destructive cursor-pointer" onClick={() => deleteQuestion(i)}>
                                                 <Trash2 className="w-3 h-3" />
                                             </Button>
                                         </div>

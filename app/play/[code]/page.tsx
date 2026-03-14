@@ -30,7 +30,7 @@ const RESULT_DISPLAY_MS = 1000;
 const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
     const router = useRouter();
-    const { currentRoom, currentParticipant, isHost, hostPlaying, restoreParticipantSession, submitAnswer, nextQuestion, loadRoomByCode } = useQuiz();
+    const { currentRoom, currentParticipant, isHost, hostPlaying, setHostPlaying, restoreParticipantSession, submitAnswer, nextQuestion, loadRoomByCode } = useQuiz();
     const [timeLeft, setTimeLeft] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
     const [shortAnswer, setShortAnswer] = useState("");
@@ -42,6 +42,8 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const autoAdvanceTimer = useRef<NodeJS.Timeout | null>(null);
     const hasAutoAdvanced = useRef(false);
     const lastTickRef = useRef(0);
+    const timeExpiredRef = useRef(false);
+    const restoredRef = useRef(false);
 
     // Power-ups
     const [powerUps, setPowerUps] = useState<PowerUpState>({ fiftyFifty: false, extraTime: false, doublePoints: false });
@@ -67,21 +69,35 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
     // Restore participant session on mount (handles page refresh)
     useEffect(() => {
+        if (restoredRef.current) return;
         const restore = async () => {
+            if (!currentRoom && code) {
+                const found = await loadRoomByCode(code);
+                if (!found) {
+                    router.push("/");
+                    return;
+                }
+            }
+
+            // restore participant AFTER room loaded
             if (!currentParticipant) {
                 await restoreParticipantSession();
             }
-            if (!currentRoom && code) {
-                const found = await loadRoomByCode(code);
-                if (!found) router.push("/");
+
+            const savedHostPlaying = localStorage.getItem("hostPlaying");
+            if (savedHostPlaying === "true") {
+                setHostPlaying(true);
             }
+            restoredRef.current = true;
         };
+
         restore();
-    }, [code]);
+    }, [code, currentRoom, currentParticipant]);
 
     useEffect(() => {
         if (currentRoom?.status === "finished") {
             bgMusic.stop();
+            localStorage.removeItem("hostPlaying");
             router.push(`/results/${code}`);
         }
     }, [currentRoom, router, code]);
@@ -106,6 +122,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 setIsCorrect(false);
                 setEarnedPoints(0);
                 setTimeExpired(false);
+                timeExpiredRef.current = false;
                 setHiddenOptions([]);
                 setExtraTimeAdded(false);
                 setDoublePointsActive(false);
@@ -152,7 +169,9 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                             await supabase
                                 .from("session_participants")
                                 .update({ is_eliminated: true })
-                                .eq("id", currentParticipant.id);
+                                .eq("id", currentParticipant.id)
+                                .select()
+                                .single();
                         }
                     }
                 }
@@ -167,13 +186,13 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
             }
         }
 
-        if (currentParticipant && canPlay) {
+        if (currentParticipant) {
             // Submit actual answer or empty string for timeout
             await submitAnswer(answer === "__timeout__" ? { answer: "", doublePoints: false } : { answer, doublePoints: doublePointsActive });
         }
 
         setShowResult(true);
-    }, [answered, eliminated, question, currentParticipant, submitAnswer, currentRoom, canPlay, doublePointsActive, mode, survivalWrongCount]);
+    }, [answered, eliminated, question, currentParticipant, submitAnswer, currentRoom, doublePointsActive, mode, survivalWrongCount]);
 
     // Realtime timer
     useEffect(() => {
@@ -195,15 +214,17 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 else Sounds.tick();
             }
 
-            if (remaining <= 0 && !timeExpired) {
+            if (remaining <= 0 && !timeExpiredRef.current) {
+                timeExpiredRef.current = true;
                 setTimeExpired(true);
-                if (!answered && canPlay && !eliminated) {
+                if (!answered && !eliminated) {
                     handleSubmit("__timeout__");
                 }
             }
         }, 200);
+
         return () => clearInterval(interval);
-    }, [question?.id, currentRoom?.questionStartTime, answered, timeExpired, extraTimeAdded, mode, questionIdx]);
+    }, [question?.id, currentRoom?.questionStartTime, answered, timeExpired, extraTimeAdded, mode, questionIdx, handleSubmit]);
 
     // Auto-advance + survival all-eliminated check
     useEffect(() => {
@@ -275,7 +296,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
         return () => {
             if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
         };
-    }, [allAnswered, timeExpired, isHost, currentRoom?.currentQuestionIndex, mode]);
+    }, [allAnswered, timeExpired, isHost, currentRoom?.currentQuestionIndex, mode, nextQuestion]);
 
     // Power-up handlers
     const handleFiftyFifty = useCallback(() => {
@@ -313,7 +334,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const progressPct = ((questionIdx + 1) / totalQuestions) * 100;
 
     return (
-        <div className="min-h-screen quiz-pattern flex flex-col overflow-x-hidden">
+        <div className="min-h-screen quiz-pattern flex flex-col overflow-hidden">
             <FloatingReactions sessionId={currentRoom.sessionId} participantName={currentParticipant?.name} />
 
             {/* Top bar */}
@@ -355,13 +376,13 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 <div className="flex items-center gap-2">
                     <StreakIndicator streak={streak} />
                     {isHost && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary text-muted-foreground text-xs">
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary/15 border border-primary/30 text-muted-foreground text-xs">
                             <Users className="w-3 h-3" />
                             {answerCount}/{participantCount}
                         </div>
                     )}
                     {isHost && !hostPlaying && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary text-muted-foreground text-xs">
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary/15 border border-primary/30 text-muted-foreground text-xs">
                             <Eye className="w-3.5 h-3.5" />
                             Pengawas
                         </div>
@@ -373,7 +394,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
             {/* Power-ups bar */}
             {canPlay && !answered && (
-                <div className="px-4 pb-2 flex justify-center">
+                <div className="px-4 pb-2 flex justify-center my-4">
                     <PowerUpBar
                         powerUps={powerUps}
                         onUseFiftyFifty={handleFiftyFifty}
@@ -474,7 +495,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                                             className="rounded-xl p-5 border border-border bg-secondary/20"
                                                         >
                                                             <div className="flex items-center gap-3 opacity-30">
-                                                                <span className="w-10 h-10 rounded-xl bg-secondary text-muted-foreground font-bold text-sm flex items-center justify-center">
+                                                                <span className="w-10 h-10 shrink-0 rounded-xl bg-secondary text-muted-foreground font-bold text-sm flex items-center justify-center">
                                                                     {optionLabels[i]}
                                                                 </span>
                                                                 <span className="text-muted-foreground line-through">{opt.text}</span>
@@ -504,7 +525,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                                         <div className="relative flex items-center gap-3">
                                                             <motion.span
                                                                 whileHover={{ rotate: 5 }}
-                                                                className={`w-10 h-10 rounded-xl ${optionColors[i].bg} text-primary-foreground font-bold text-sm flex items-center justify-center shadow-lg`}
+                                                                className={`w-10 h-10 shrink-0 rounded-xl ${optionColors[i].bg} text-primary-foreground font-bold text-sm flex items-center justify-center shadow-lg`}
                                                             >
                                                                 {optionLabels[i]}
                                                             </motion.span>
@@ -525,13 +546,14 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                                 placeholder="Ketik jawabanmu..."
                                                 value={shortAnswer}
                                                 onChange={(e) => setShortAnswer(e.target.value)}
-                                                className="bg-secondary border-border h-14 text-lg"
+                                                className="bg-primary/10 h-14 text-lg"
                                                 onKeyDown={(e) => e.key === "Enter" && handleSubmit(shortAnswer)}
                                                 disabled={answered}
                                                 maxLength={200}
                                             />
                                             <Button
-                                                className="bg-gradient-primary text-primary-foreground h-14 px-6"
+                                                variant={"primary"}
+                                                className="h-14 px-6"
                                                 onClick={() => handleSubmit(shortAnswer)}
                                                 disabled={answered}
                                             >
@@ -677,7 +699,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: i * 0.05 }}
-                                        className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50"
+                                        className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 shadow"
                                     >
                                         <span className="w-5 text-center text-xs font-bold text-muted-foreground">{i + 1}</span>
                                         <span className="text-lg">{p.avatar}</span>
