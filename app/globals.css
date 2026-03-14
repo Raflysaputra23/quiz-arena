@@ -243,6 +243,25 @@
     border: 1px solid hsl(222 30% 20% / 0.5);
   }
 
+  /* Scrollbar untuk dark mode */
+  ::-webkit-scrollbar {
+    height: 4px;
+    width: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent ;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+  }
+
   .quiz-pattern {
     background-image:
       radial-gradient(

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, ArrowLeft, Clock, Users, Trophy, Trash2, Play, Plus, ChevronDown, ChevronUp, Eye } from "lucide-react";
+import { Zap, ArrowLeft, Clock, Users, Trophy, Trash2, Play, Plus, ChevronDown, ChevronUp, Eye, LogIn } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -127,6 +127,10 @@ const History = () => {
     const viewResults = (roomCode: string) => {
         router.push(`/results/${roomCode}`);
     };
+
+    const viewRoom = (roomCode: string) => {
+        router.push(`/lobby/${roomCode}`);
+    }
 
     const getModeLabel = (mode: string) => {
         switch (mode) {
@@ -294,11 +298,22 @@ const History = () => {
                                                                 <Button
                                                                     size="sm"
                                                                     variant="ghost"
-                                                                    className="text-xs h-7"
+                                                                    className="text-xs h-7 cursor-pointer bg-primary hover:bg-primary/80"
                                                                     onClick={() => viewResults(session.room_code)}
                                                                 >
                                                                     <Eye className="w-3 h-3 mr-1" />
                                                                     Lihat Hasil
+                                                                </Button>
+                                                            )}
+                                                            {session.status === "waiting" && (
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    className="text-xs h-7 cursor-pointer bg-green-500 hover:bg-green-500/80"
+                                                                    onClick={() => viewRoom(session.room_code)}
+                                                                >
+                                                                    <LogIn className="w-3 h-3 mr-1" />
+                                                                    Join Room
                                                                 </Button>
                                                             )}
                                                         </div>

@@ -105,6 +105,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     const subscriptionsRef = useRef<any[]>([]);
     const supaRef = useRef(createClient());
     const answeredParticipantsRef = useRef<Set<string>>(new Set());
+    const currentQuestionIdRef = useRef<string | null>(null);
 
 
     // Wrapper to also persist to sessionStorage
@@ -151,6 +152,10 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                     const questionChanged = data.current_question_index !== prev.currentQuestionIndex;
                     if (questionChanged) {
                         answeredParticipantsRef.current.clear();
+                        const question =
+                            prev.quiz.questions[data.current_question_index];
+
+                        currentQuestionIdRef.current = question?.id ?? null;
                     }
                     return {
                         ...prev,
@@ -195,8 +200,9 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                     setCurrentRoom((prev) => {
                         if (!prev) return prev
 
-                        const updatedParticipants =
-                            prev.participants?.filter(x => x.id !== p.id) || []
+                        answeredParticipantsRef.current.delete(p.id);
+                        const updatedParticipants = prev.participants?.filter(x => x.id !== p.id) || []
+
 
                         return {
                             ...prev,
@@ -239,21 +245,21 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 setCurrentRoom((prev) => {
                     if (!prev) return prev;
 
+                    if (!answer?.participant_id) return prev;
+                    if (!answer?.question_id) return prev;
+
+                    if (answer.question_id !== currentQuestionIdRef.current) {
+                        return prev;
+                    }
+
                     if (answeredParticipantsRef.current.has(answer.participant_id)) {
                         return prev;
                     }
 
-                    const exists = prev.participants.some(
-                        p => p.id === answer.participant_id
-                    )
-
-                    if (!exists) return prev;
-
                     answeredParticipantsRef.current.add(answer.participant_id);
                     return {
                         ...prev,
-                        currentQuestionAnswerCount:
-                            prev.currentQuestionAnswerCount + 1
+                        currentQuestionAnswerCount: answeredParticipantsRef.current.size
                     }
                 })
             })
@@ -322,6 +328,8 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         setIsHost(user?.id === session.host_id);
         setCurrentRoom(room);
         subscribeToSession(session.id);
+        currentQuestionIdRef.current =
+            room.quiz.questions[room.currentQuestionIndex]?.id ?? null;
         return true;
     }, [subscribeToSession, user]);
 
@@ -453,8 +461,12 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
 
     const nextQuestion = useCallback(async () => {
         if (!currentRoom) return;
+        answeredParticipantsRef.current.clear();
+        const nextQuestion = currentRoom.quiz.questions[currentRoom.currentQuestionIndex + 1];
+        currentQuestionIdRef.current = nextQuestion?.id ?? null;
+
         const nextIdx = currentRoom.currentQuestionIndex + 1;
-        
+
         const supabase = supaRef.current;
         if (nextIdx >= currentRoom.quiz.questions.length) {
             await supabase
@@ -492,7 +504,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         let points = correct ? question.points + timeBonus : 0;
         if (doublePoints) points *= 2;
 
-        await supabase.from("participant_answers").insert({
+        const { error: insertError } = await supabase.from("participant_answers").insert({
             session_id: currentRoom.sessionId,
             participant_id: currentParticipant.id,
             question_id: question.id,
@@ -502,13 +514,29 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             points_earned: points,
         });
 
+        if (insertError) {
+            console.error("Participant insert error:", insertError);
+            return;
+        }
+
+        answeredParticipantsRef.current.add(currentParticipant.id)
+
+        setCurrentRoom(prev => {
+            if (!prev) return prev
+
+            return {
+                ...prev,
+                currentQuestionAnswerCount: answeredParticipantsRef.current.size
+            }
+        })
+
         const { error } = await supabase.rpc("increment_score", {
             participant_id: currentParticipant.id,
             points
         });
 
         if (error) {
-            console.error("increment_score error:", error)
+            console.error("Increment score error:", error);
         }
 
         const newStreak = correct ? (currentParticipant.streak || 0) + 1 : 0;

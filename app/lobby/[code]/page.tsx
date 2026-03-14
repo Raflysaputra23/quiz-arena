@@ -18,7 +18,7 @@ const MODES = [
 const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
     const { currentRoom, isHost, hostPlaying, setHostPlaying, startQuiz, loadRoomByCode, restoreParticipantSession } = useQuiz();
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [starting, setStarting] = useState(false);
     const [selectedMode, setSelectedMode] = useState("normal");
     const router = useRouter();
@@ -26,24 +26,21 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
 
     useEffect(() => {
         setHostPlaying(false);
-        const timeout = setTimeout(() => {
-            const joined = sessionStorage.getItem("joinedRoom");
+        if (loading) return;
 
-            if (!joined && !isHost) {
-                toastError("Silahkan join lewat form!");
-                router.push("/");
-            }
-            clearTimeout(timeout);
-        }, 500);
-        return () => clearTimeout(timeout);
-    }, [isHost, router]);
+        const joined = sessionStorage.getItem("joinedRoom");
+
+        if (!joined && !isHost) {
+            toastError("Silahkan join lewat form!");
+            router.push("/");
+        }
+    }, [isHost, router, loading]);
 
     useEffect(() => {
         if (!code || initialized.current) return;
 
         initialized.current = true;
         const init = async () => {
-            setLoading(true);
             await restoreParticipantSession();
             if (!currentRoom && code) {
                 const found = await loadRoomByCode(code);
