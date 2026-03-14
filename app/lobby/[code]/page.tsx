@@ -25,17 +25,17 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     const initialized = useRef(false);
 
     useEffect(() => {
-        const frame = requestAnimationFrame(() => {
-            setHostPlaying(false);
+        setHostPlaying(false);
+        const timeout = setTimeout(() => {
             const joined = sessionStorage.getItem("joinedRoom");
 
             if (!joined && !isHost) {
                 toastError("Silahkan join lewat form!");
                 router.push("/");
             }
-        });
-
-        return () => cancelAnimationFrame(frame);
+            clearTimeout(timeout);
+        }, 500);
+        return () => clearTimeout(timeout);
     }, [isHost, router]);
 
     useEffect(() => {
