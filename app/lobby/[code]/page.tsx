@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Play, Users, Zap, Loader2, Gamepad2, Eye, Gauge, Skull, Sparkles } from "lucide-react";
 import { useQuiz } from "@/hooks/useQuiz";
@@ -22,22 +22,26 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     const [starting, setStarting] = useState(false);
     const [selectedMode, setSelectedMode] = useState("normal");
     const router = useRouter();
+    const initialized = useRef(false);
 
     useEffect(() => {
+        const frame = requestAnimationFrame(() => {
             setHostPlaying(false);
             const joined = sessionStorage.getItem("joinedRoom");
-            const timeout = setTimeout(() => {
-                clearTimeout(timeout);
-                if (!joined && !isHost) {
-                    toastError("Silahkan join lewat form!");
-                    router.push("/");
-                }
-            }, 1000);
 
-            return () => clearTimeout(timeout);
+            if (!joined && !isHost) {
+                toastError("Silahkan join lewat form!");
+                router.push("/");
+            }
+        });
+
+        return () => cancelAnimationFrame(frame);
     }, [isHost, router]);
 
     useEffect(() => {
+        if (!code || initialized.current) return;
+
+        initialized.current = true;
         const init = async () => {
             setLoading(true);
             await restoreParticipantSession();
@@ -50,7 +54,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
             }
             setLoading(false);
         };
-        if (code) init();
+        init();
     }, [code, currentRoom, router]);
 
     useEffect(() => {
@@ -70,6 +74,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     };
 
     const handleStart = async () => {
+        if (starting) return;
         setStarting(true);
         localStorage.setItem("hostPlaying", hostPlaying ? "true" : "false");
         await startQuiz(selectedMode);

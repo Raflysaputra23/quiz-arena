@@ -454,6 +454,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     const nextQuestion = useCallback(async () => {
         if (!currentRoom) return;
         const nextIdx = currentRoom.currentQuestionIndex + 1;
+        
         const supabase = supaRef.current;
         if (nextIdx >= currentRoom.quiz.questions.length) {
             await supabase

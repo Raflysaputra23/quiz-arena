@@ -44,6 +44,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const lastTickRef = useRef(0);
     const timeExpiredRef = useRef(false);
     const restoredRef = useRef(false);
+    const submitLockRef = useRef(false);
 
     // Power-ups
     const [powerUps, setPowerUps] = useState<PowerUpState>({ fiftyFifty: false, extraTime: false, doublePoints: false });
@@ -70,6 +71,8 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     // Restore participant session on mount (handles page refresh)
     useEffect(() => {
         if (restoredRef.current) return;
+        restoredRef.current = true;
+
         const restore = async () => {
             if (!currentRoom && code) {
                 const found = await loadRoomByCode(code);
@@ -88,7 +91,6 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
             if (savedHostPlaying === "true") {
                 setHostPlaying(true);
             }
-            restoredRef.current = true;
         };
 
         restore();
@@ -123,6 +125,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 setEarnedPoints(0);
                 setTimeExpired(false);
                 timeExpiredRef.current = false;
+                submitLockRef.current = false;
                 setHiddenOptions([]);
                 setExtraTimeAdded(false);
                 setDoublePointsActive(false);
@@ -138,6 +141,9 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     }, [questionIdx, question?.id, currentRoom?.questionStartTime]);
 
     const handleSubmit = useCallback(async (answer: string) => {
+        if (submitLockRef.current) return;
+        submitLockRef.current = true;
+        
         if (answered || eliminated) return;
         setAnswered(true);
 
@@ -197,33 +203,43 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     // Realtime timer
     useEffect(() => {
         if (!question || !currentRoom) return;
-        let effectiveTimeLimit = question.timeLimit;
-        if (mode === "speed") {
-            effectiveTimeLimit = Math.max(5, question.timeLimit - questionIdx * 2);
-        }
-        const bonusTime = extraTimeAdded ? 5 : 0;
+        let frame: number;
 
-        const interval = setInterval(() => {
+        const tick = () => {
+            let effectiveTimeLimit = question.timeLimit;
+            if (mode === "speed") {
+                effectiveTimeLimit = Math.max(5, question.timeLimit - questionIdx * 2);
+            }
+
+            const bonusTime = extraTimeAdded ? 5 : 0;
+
             const elapsed = Math.floor((Date.now() - currentRoom.questionStartTime) / 1000);
             const remaining = Math.max(0, effectiveTimeLimit + bonusTime - elapsed);
+
             setTimeLeft(remaining);
 
             if (remaining <= 5 && remaining > 0 && remaining !== lastTickRef.current) {
                 lastTickRef.current = remaining;
+
                 if (remaining <= 3) Sounds.tickUrgent()
-                else Sounds.tick();
+                else Sounds.tick()
             }
 
             if (remaining <= 0 && !timeExpiredRef.current) {
                 timeExpiredRef.current = true;
                 setTimeExpired(true);
+
                 if (!answered && !eliminated) {
                     handleSubmit("__timeout__");
                 }
             }
-        }, 200);
 
-        return () => clearInterval(interval);
+            frame = requestAnimationFrame(tick);
+        };
+
+        frame = requestAnimationFrame(tick);
+
+        return () => cancelAnimationFrame(frame);
     }, [question?.id, currentRoom?.questionStartTime, answered, timeExpired, extraTimeAdded, mode, questionIdx, handleSubmit]);
 
     // Auto-advance + survival all-eliminated check
@@ -547,7 +563,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                                 value={shortAnswer}
                                                 onChange={(e) => setShortAnswer(e.target.value)}
                                                 className="bg-primary/10 h-14 text-lg"
-                                                onKeyDown={(e) => e.key === "Enter" && handleSubmit(shortAnswer)}
+                                                onKeyDown={(e) => e.key === "Enter" && !answered && handleSubmit(shortAnswer)}
                                                 disabled={answered}
                                                 maxLength={200}
                                             />
