@@ -39,6 +39,8 @@ export interface Participant {
     score: number;
     streak: number;
     answers: Record<string, { answer: string; time: number; correct: boolean; points: number }>;
+    pos_x?: number;
+    pos_y?: number;
 }
 
 export interface Room {

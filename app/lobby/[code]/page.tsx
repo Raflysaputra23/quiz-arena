@@ -13,6 +13,7 @@ const MODES = [
     { id: "normal", label: "Normal", icon: Sparkles, desc: "Mode standar, jawab sesuai waktu", color: "bg-primary/20 text-primary border-primary/50" },
     { id: "speed", label: "Speed Round", icon: Gauge, desc: "Waktu berkurang setiap soal!", color: "bg-yellow-500/20 text-yellow-500 border-yellow-500/50" },
     { id: "survival", label: "Survival", icon: Skull, desc: "Salah = tersingkir!", color: "bg-purple-500/20 text-purple-500 border-purple-500/50" },
+    { id: "battle", label: "Battle", icon: Skull, desc: "Mati = tersingkir!", color: "bg-red-500/20 text-red-500 border-red-500/50" },
 ];
 
 const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
@@ -57,7 +58,11 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     useEffect(() => {
         if (currentRoom?.status === "playing" && code) {
             enterFullscreen();
-            router.push(`/play/${code}`);
+            if(currentRoom.mode === "battle") {
+                router.push(`/battle/${code}`);
+            } else {
+                router.push(`/play/${code}`);
+            }
         }
         if (currentRoom?.status === "finished" && code) {
             router.push(`/results/${code}`);
