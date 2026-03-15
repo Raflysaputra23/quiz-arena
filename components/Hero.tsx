@@ -15,7 +15,7 @@ const Hero = () => {
     const [name, setName] = useState("");
     const [showJoin, setShowJoin] = useState(false);
     const [joining, setJoining] = useState(false);
-    const { joinRoom, setCurrentRoom, clearParticipantSession } = useQuiz();
+    const { joinRoom, setCurrentRoom, clearParticipantSession, exitFullscreen } = useQuiz();
     const { user } = useAuth();
     const { scrollYProgress } = useScroll();
     const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
@@ -25,6 +25,7 @@ const Hero = () => {
     useEffect(() => {
         (async() => {
             setCurrentRoom(null);
+            exitFullscreen();
             await clearParticipantSession();
         })()
     }, [setCurrentRoom]);

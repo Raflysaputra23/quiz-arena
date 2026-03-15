@@ -9,7 +9,9 @@ class BackgroundMusic {
 
   private getCtx() {
     if (!this.ctx) {
-      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.ctx = new (
+        window.AudioContext || (window as any).webkitAudioContext
+      )();
       this.gainNode = this.ctx.createGain();
       this.gainNode.gain.setValueAtTime(0.04, this.ctx.currentTime);
       this.gainNode.connect(this.ctx.destination);
@@ -25,7 +27,10 @@ class BackgroundMusic {
       osc.type = "sine";
       osc.frequency.setValueAtTime(freq, ctx.currentTime);
       oscGain.gain.setValueAtTime(0.03, ctx.currentTime);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      oscGain.gain.exponentialRampToValueAtTime(
+        0.001,
+        ctx.currentTime + duration,
+      );
       osc.connect(oscGain);
       oscGain.connect(gain);
       osc.start(ctx.currentTime);
@@ -35,14 +40,14 @@ class BackgroundMusic {
   }
 
   private chordProgressions = [
-    [261, 329, 392],  // C major
-    [220, 277, 329],  // A minor
-    [349, 440, 523],  // F major
-    [392, 493, 587],  // G major
-    [293, 369, 440],  // D minor
-    [261, 329, 392],  // C major
-    [349, 440, 523],  // F major
-    [392, 493, 587],  // G major
+    [261, 329, 392], // C major
+    [220, 277, 329], // A minor
+    [349, 440, 523], // F major
+    [392, 493, 587], // G major
+    [293, 369, 440], // D minor
+    [261, 329, 392], // C major
+    [349, 440, 523], // F major
+    [392, 493, 587], // G major
   ];
 
   start() {
@@ -52,7 +57,10 @@ class BackgroundMusic {
 
     const playNext = () => {
       if (!this.isPlaying) return;
-      this.playChord(this.chordProgressions[chordIdx % this.chordProgressions.length], 3.5);
+      this.playChord(
+        this.chordProgressions[chordIdx % this.chordProgressions.length],
+        3.5,
+      );
       chordIdx++;
     };
 
@@ -67,18 +75,25 @@ class BackgroundMusic {
       this.intervalId = null;
     }
     this.oscillators.forEach((o) => {
-      try { o.stop(); } catch {}
+      try {
+        o.stop();
+      } catch {}
     });
     this.oscillators = [];
   }
 
   setVolume(vol: number) {
     if (this.gainNode && this.ctx) {
-      this.gainNode.gain.setValueAtTime(Math.max(0, Math.min(0.1, vol)), this.ctx.currentTime);
+      this.gainNode.gain.setValueAtTime(
+        Math.max(0, Math.min(0.1, vol)),
+        this.ctx.currentTime,
+      );
     }
   }
 
-  getIsPlaying() { return this.isPlaying; }
+  getIsPlaying() {
+    return this.isPlaying;
+  }
 }
 
 export const bgMusic = new BackgroundMusic();

@@ -67,6 +67,8 @@ interface QuizContextType {
     loadRoomByCode: (code: string) => Promise<boolean>;
     restoreParticipantSession: () => Promise<boolean>;
     clearParticipantSession: () => void;
+    enterFullscreen: () => void;
+    exitFullscreen: () => void;
 }
 
 const QuizContext = createContext<QuizContextType | null>(null);
@@ -127,6 +129,21 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             });
         };
     }, []);
+
+    const enterFullscreen = () => {
+        const elem = document.documentElement;
+
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+        }
+    }
+
+    const exitFullscreen = () => {
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        }
+    }
+
 
     const subscribeToSession = useCallback((sessionId: string) => {
         const supabase = supaRef.current;
@@ -633,6 +650,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 createAndStartSession, joinRoom, startQuiz, nextQuestion,
                 submitAnswer, setCurrentRoom, loadRoomByCode,
                 restoreParticipantSession, clearParticipantSession,
+                enterFullscreen, exitFullscreen
             }}
         >
             {children}

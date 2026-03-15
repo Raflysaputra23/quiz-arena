@@ -30,7 +30,7 @@ const RESULT_DISPLAY_MS = 1000;
 const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
     const router = useRouter();
-    const { currentRoom, currentParticipant, isHost, hostPlaying, setHostPlaying, restoreParticipantSession, submitAnswer, nextQuestion, loadRoomByCode } = useQuiz();
+    const { currentRoom, currentParticipant, isHost, hostPlaying, setHostPlaying, exitFullscreen, restoreParticipantSession, submitAnswer, nextQuestion, loadRoomByCode } = useQuiz();
     const [timeLeft, setTimeLeft] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
     const [shortAnswer, setShortAnswer] = useState("");
@@ -100,6 +100,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
         if (currentRoom?.status === "finished") {
             bgMusic.stop();
             localStorage.removeItem("hostPlaying");
+            exitFullscreen();
             router.push(`/results/${code}`);
         }
     }, [currentRoom, router, code]);

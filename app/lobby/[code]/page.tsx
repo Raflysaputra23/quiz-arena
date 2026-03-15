@@ -17,7 +17,7 @@ const MODES = [
 
 const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
-    const { currentRoom, isHost, hostPlaying, setHostPlaying, startQuiz, loadRoomByCode, restoreParticipantSession } = useQuiz();
+    const { currentRoom, isHost, hostPlaying, setHostPlaying, startQuiz, enterFullscreen, loadRoomByCode, restoreParticipantSession } = useQuiz();
     const [loading, setLoading] = useState(true);
     const [starting, setStarting] = useState(false);
     const [selectedMode, setSelectedMode] = useState("normal");
@@ -56,6 +56,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
 
     useEffect(() => {
         if (currentRoom?.status === "playing" && code) {
+            enterFullscreen();
             router.push(`/play/${code}`);
         }
         if (currentRoom?.status === "finished" && code) {
