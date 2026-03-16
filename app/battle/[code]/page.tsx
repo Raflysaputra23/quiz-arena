@@ -16,10 +16,10 @@ import Image from "next/image";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 
 const BATTLE_DURATION = 500;
-const ATTACK_COOLDOWN = 2000;
-const DAMAGE_INTERVAL = 2000;
+const ATTACK_COOLDOWN = 2500;
+// const DAMAGE_INTERVAL = 2000;
 const DAMAGE_PER_HIT = 10;
-const DAMAGE_MANUAL = 5;
+// const DAMAGE_MANUAL = 5;
 const QUESTIONS_TO_WIN = 10;
 const CHARACTER_SKINS = ["⚔️🦊", "🗡️🐱", "🏹🐶", "🔮🐸", "⚡🦁", "🛡️🐼", "💣🐨", "🔥🐯", "✨🦄", "🌊🐙"];
 
@@ -65,13 +65,11 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [myCorrectCount, setMyCorrectCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isAllowedPunch, setIsAllowedPunch] = useState(false);
-  const [streakAnswer, setStreakAnswer] = useState(0);
-  const [information, setInformation] = useState<string>("");
 
   const battleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const battleStartRef = useRef<number>(0);
   const subscriptionRef = useRef<any[]>([]);
+  const lastAttackRef = useRef<number>(0);
   const supaRef = useRef(createClient());
 
   const questions = currentRoom?.quiz.questions || [];
@@ -216,7 +214,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
     // Determine winner
     const alive = battleParticipants.filter(p => !p.isEliminated);
     let w: BattleParticipant | null = null;
-    if (myCorrectCount >= QUESTIONS_TO_WIN && myParticipant) {
+    if (myCorrectCount >= questions.length && myParticipant) {
       w = myParticipant;
     } else if (alive.length === 1) {
       w = alive[0];
@@ -235,7 +233,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
     }
 
     Sounds.correct();
-  }, [gameOver, battleParticipants, myCorrectCount, myParticipant, isHost, currentRoom]);
+  }, [gameOver, battleParticipants, myCorrectCount, myParticipant, isHost, currentRoom, questions]);
 
   // Battle timer
   useEffect(() => {
@@ -256,8 +254,8 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
   const performAttack = useCallback(async (targetId: string) => {
     if (!currentRoom || !currentParticipant || gameOver) return;
     const now = Date.now();
-    if (now - lastAttackTime < ATTACK_COOLDOWN) return;
-    setLastAttackTime(now);
+    if (now - lastAttackRef.current < ATTACK_COOLDOWN) return;
+    lastAttackRef.current = now;
 
     // Insert attack record
     const supabase = supaRef.current;
@@ -265,10 +263,10 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
       p_session: currentRoom.sessionId,
       p_attacker: currentParticipant.id,
       p_target: targetId,
-      p_damage: DAMAGE_PER_HIT * (streakAnswer == 0 ? 1 : Math.round(streakAnswer / 2))
+      p_damage: DAMAGE_PER_HIT
     });
 
-  }, [currentRoom, currentParticipant, lastAttackTime, gameOver, streakAnswer]);
+  }, [currentRoom, currentParticipant, lastAttackTime, gameOver]);
 
   // Check win condition
   useEffect(() => {
@@ -309,20 +307,16 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
     const me = battleParticipants.find(p => p.id === myParticipant.id)
     const target = battleParticipants.find(p => p.id === targetId)
     if (!me || !target ) return;
-    // if(!isAllowedPunch) return;
 
     performAttack(targetId);
     setSelectedTarget(targetId);
     setTimeout(() => setSelectedTarget(null), 300);
-    setIsAllowedPunch(false);
-  }, [myParticipant, gameOver, performAttack, battleParticipants, isAllowedPunch]);
+  }, [myParticipant, gameOver, performAttack, battleParticipants]);
 
   const openQuestionModal = useCallback(() => {
     if (!myParticipant || myParticipant.isEliminated || gameOver) return;
     if (currentQuestionIdx >= questions.length) {
-      setInformation("Semua soal sudah dijawab!");
       toastSuccess("Semua soal sudah dijawab!");
-      setTimeout(() => setInformation(""), 2000);
       return;
     }
     setShowQuestionModal(true);
@@ -374,22 +368,11 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
           hp: Math.min((myParticipant?.hp || 0) + 15, 100),
           score: (myParticipant?.score || 0) + points
         })
-        .eq("id", currentParticipant.id)
+        .eq("id", currentParticipant.id);
 
-      setStreakAnswer((prev) => {
-        if((prev  + 1) % 2 == 0) {
-          setIsAllowedPunch(true);
-          setInformation("Anda dapat memukul 1x pemain!");
-          setTimeout(() => setInformation(""), 2000);
-          toastInfo("Anda dapat memukul 1x pemain!");
-        };
-        return prev + 1;
-      });
-
-      setMyParticipant(prev => prev ? { ...prev, hp: Math.min(prev.hp + 15, 100), score: prev.score + points, correctAnswers: prev.correctAnswers + 1 } : prev);
+      setMyParticipant(prev => prev ? { ...prev, hp: Math.min(prev.hp + 25, 100), score: prev.score + points, correctAnswers: prev.correctAnswers + 1 } : prev);
     } else {
       Sounds.wrong();
-      setStreakAnswer(0);
       // Save wrong answer
       await supabase.from("participant_answers").insert({
         participant_id: currentParticipant.id,
@@ -510,7 +493,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
         {myParticipant && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary">
             <Trophy className="w-3.5 h-3.5 text-gold" />
-            <span className="text-sm font-bold text-foreground">{myCorrectCount}/{QUESTIONS_TO_WIN}</span>
+            <span className="text-sm font-bold text-foreground">{myCorrectCount}/{questions.length}</span>
           </div>
         )}
 
