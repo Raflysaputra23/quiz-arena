@@ -13,7 +13,7 @@ import { Sounds } from "@/lib/sounds";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import Image from "next/image";
-import { toastSuccess } from "@/lib/toast";
+import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
 
 const BATTLE_DURATION = 500;
 const ATTACK_COOLDOWN = 2000;
@@ -67,6 +67,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
   const [loading, setLoading] = useState(true);
   const [isAllowedPunch, setIsAllowedPunch] = useState(false);
   const [streakAnswer, setStreakAnswer] = useState(0);
+  const [information, setInformation] = useState<string>("");
 
   const battleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const battleStartRef = useRef<number>(0);
@@ -90,29 +91,6 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
     init();
   }, [code]);
 
-  // ATTACK GLOBAL
-  useEffect(() => {
-    if (!currentRoom || gameOver) return
-
-    const supabase = supaRef.current
-    const interval = setInterval(async () => {
-      const alive = battleParticipants.filter(p => !p.isEliminated)
-
-      for (const p of alive) {
-        const newHp = Math.max(0, p.hp - DAMAGE_PER_HIT)
-        await supabase
-          .from("session_participants")
-          .update({
-            hp: newHp,
-            is_eliminated: newHp <= 0
-          })
-          .eq("id", p.id);
-      }
-
-    }, DAMAGE_INTERVAL);
-    return () => clearInterval(interval)
-  }, [battleParticipants, gameOver, currentRoom]);
-
 
   // Setup participants with grid positions
   useEffect(() => {
@@ -128,8 +106,8 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
       isEliminated: false,
       gridX: (i % cols) * 1 + Math.random() * 0.3,
       gridY: Math.floor(i / cols) * 1 + Math.random() * 0.3,
-      posX: 0,
-      posY: 0
+      posX: p.pos_x ?? 0,
+      posY: p.pos_y ?? 0
 
     }));
     (async () => {
@@ -162,10 +140,12 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
           targetId: attack.target_id,
           timestamp: Date.now(),
         }]);
+
         // Remove animation after 1s
         setTimeout(() => {
           setAttackAnimations(prev => prev.filter(a => a.id !== attack.id));
         }, 1000);
+
         // Update target HP
         setBattleParticipants(prev => prev.map(p => {
           if (p.id === attack.target_id) {
@@ -174,6 +154,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
           }
           return p;
         }));
+
         // Update my participant
         if (currentParticipant && attack.target_id === currentParticipant.id) {
           setMyParticipant(prev => {
@@ -181,17 +162,19 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
             const newHp = Math.max(0, prev.hp - attack.damage);
             if (newHp <= 0) {
               Sounds.wrong();
-              toast.error("Kamu tereliminasi! 💀");
+              toastError("Kamu tereliminasi! 💀");
             } else {
               Sounds.tickUrgent();
             }
             return { ...prev, hp: newHp, isEliminated: newHp <= 0 };
           });
         }
+
         // Play sound for attacker
         if (currentParticipant && attack.attacker_id === currentParticipant.id) {
           Sounds.whoosh();
         }
+
       })
       .subscribe();
 
@@ -207,25 +190,11 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
         const updated = payload.new as any;
         setBattleParticipants(prev => prev.map(p => {
           if (p.id === updated.id) {
-
-            if (currentParticipant && updated.id === currentParticipant.id) {
-              return {
-                ...p,
-                hp: updated.hp,
-                score: updated.score,
-                isEliminated: updated.hp <= 0 || updated.is_eliminated,
-                posX: updated.pos_x,
-                posY: updated.pos_y
-              }
-            }
-
             return {
               ...p,
               hp: updated.hp,
               score: updated.score,
               isEliminated: updated.hp <= 0 || updated.is_eliminated,
-              posX: updated.pos_x,
-              posY: updated.pos_y
             }
           }
           return p;
@@ -296,10 +265,10 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
       p_session: currentRoom.sessionId,
       p_attacker: currentParticipant.id,
       p_target: targetId,
-      p_damage: DAMAGE_PER_HIT
+      p_damage: DAMAGE_PER_HIT * (streakAnswer == 0 ? 1 : Math.round(streakAnswer / 2))
     });
 
-  }, [currentRoom, currentParticipant, lastAttackTime, gameOver]);
+  }, [currentRoom, currentParticipant, lastAttackTime, gameOver, streakAnswer]);
 
   // Check win condition
   useEffect(() => {
@@ -340,7 +309,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
     const me = battleParticipants.find(p => p.id === myParticipant.id)
     const target = battleParticipants.find(p => p.id === targetId)
     if (!me || !target ) return;
-    if(!isAllowedPunch) return;
+    // if(!isAllowedPunch) return;
 
     performAttack(targetId);
     setSelectedTarget(targetId);
@@ -351,7 +320,9 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
   const openQuestionModal = useCallback(() => {
     if (!myParticipant || myParticipant.isEliminated || gameOver) return;
     if (currentQuestionIdx >= questions.length) {
-      toast.info("Semua soal sudah dijawab!");
+      setInformation("Semua soal sudah dijawab!");
+      toastSuccess("Semua soal sudah dijawab!");
+      setTimeout(() => setInformation(""), 2000);
       return;
     }
     setShowQuestionModal(true);
@@ -404,16 +375,21 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
           score: (myParticipant?.score || 0) + points
         })
         .eq("id", currentParticipant.id)
+
       setStreakAnswer((prev) => {
-        if(prev % 2 == 0 && prev != 0) {
+        if((prev  + 1) % 2 == 0) {
           setIsAllowedPunch(true);
-          toastSuccess("Anda dapat memukul 1x pemain!");
+          setInformation("Anda dapat memukul 1x pemain!");
+          setTimeout(() => setInformation(""), 2000);
+          toastInfo("Anda dapat memukul 1x pemain!");
         };
         return prev + 1;
       });
+
       setMyParticipant(prev => prev ? { ...prev, hp: Math.min(prev.hp + 15, 100), score: prev.score + points, correctAnswers: prev.correctAnswers + 1 } : prev);
     } else {
       Sounds.wrong();
+      setStreakAnswer(0);
       // Save wrong answer
       await supabase.from("participant_answers").insert({
         participant_id: currentParticipant.id,
@@ -469,13 +445,13 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
           >
             🏆
           </motion.div>
-          <h1 className="text-3xl font-display font-bold text-foreground">Battle Selesai!</h1>
+          <h1 className="text-3xl font-poppins font-bold text-foreground">Battle Selesai!</h1>
           <div className="space-y-2">
             <p className="text-muted-foreground">Pemenang</p>
             <div className="flex flex-col items-center justify-center gap-2">
               <span className="text-4xl">{winner.avatar}</span>
               <div className="space-y-1">
-                <p className="text-xl font-display font-bold text-gradient">{winner.name}</p>
+                <p className="text-xl font-poppins font-bold text-gradient">{winner.name}</p>
                 <p className="text-sm text-muted-foreground">{winner.score} poin</p>
               </div>
             </div>
@@ -521,12 +497,12 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
       >
         <div className="flex items-center gap-2">
           <Swords className="w-5 h-5 text-destructive" />
-          <span className="font-display font-bold text-foreground text-sm">Battle Mode</span>
+          <span className="font-poppins font-bold text-foreground text-sm">Battle Mode</span>
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary">
           <Clock className="w-3.5 h-3.5 text-warning" />
-          <span className={`font-display font-bold text-sm ${battleTimeLeft <= 30 ? "text-destructive animate-pulse" : "text-foreground"}`}>
+          <span className={`font-poppins font-bold text-sm ${battleTimeLeft <= 30 ? "text-destructive animate-pulse" : "text-foreground"}`}>
             {formatTime(battleTimeLeft)}
           </span>
         </div>
@@ -616,8 +592,6 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
                     }`}
                   animate={isBeingAttacked ? { x: [-6, 6, -6, 6, 0] } : {}}
                   transition={{ duration: 0.25 }}
-                // animate={isMe && !isEliminated ? { y: [0, -4, 0] } : {}}
-                // transition={isMe ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : {}}
                 >
                   {p.avatar}
                   {p.isEliminated && (
@@ -682,7 +656,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
               >
                 💀
               </motion.div>
-              <h2 className="text-2xl font-display font-bold text-destructive">Tereliminasi!</h2>
+              <h2 className="text-2xl font-poppins font-bold text-destructive">Tereliminasi!</h2>
               <p className="text-muted-foreground">HP kamu habis. Menonton pertarungan...</p>
             </div>
           </motion.div>
@@ -760,7 +734,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
               )}
 
               {/* Question text */}
-              <h3 className="text-xl font-display font-bold text-foreground text-center leading-relaxed">
+              <h3 className="text-xl font-poppins font-bold text-foreground text-center leading-relaxed">
                 {currentQuestion.text}
               </h3>
 

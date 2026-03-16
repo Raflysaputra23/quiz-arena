@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, ArrowLeft, Clock, Users, Trophy, Trash2, Play, Plus, ChevronDown, ChevronUp, Eye, LogIn } from "lucide-react";
+import { Zap, ArrowLeft, Clock, Users, Trophy, Trash2, Play, Plus, ChevronDown, ChevronUp, Eye, LogIn, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -134,20 +134,21 @@ const History = () => {
 
     const getModeLabel = (mode: string) => {
         switch (mode) {
-            case "speed": return "⚡ Speed";
-            case "survival": return "💀 Survival";
-            default: return "✨ Normal";
+            case "speed": return {label: "⚡ Speed", color: "bg-yellow-500/20 text-yellow-500 border-yellow-500/50"};
+            case "survival": return {label: "💀 Survival", color: "bg-purple-500/20 text-purple-500 border-purple-500/50"};
+            case "battle": return {label: "⚔️ Battle", color: "bg-red-500/20 text-red-500 border-red-500/50"};
+            default: return {label: "✨ Normal", color: "bg-primary/20 text-primary border-primary/50"};
         }
     };
 
     const getStatusBadge = (status: string) => {
         switch (status) {
             case "finished":
-                return <span className="px-2 py-0.5 rounded-full text-xs bg-success/20 text-success">Selesai</span>;
+                return <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-500">Selesai</span>;
             case "playing":
-                return <span className="px-2 py-0.5 rounded-full text-xs bg-warning/20 text-warning">Berlangsung</span>;
+                return <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-500/20 text-yellow-500">Berlangsung</span>;
             default:
-                return <span className="px-2 py-0.5 rounded-full text-xs bg-secondary text-muted-foreground">Menunggu</span>;
+                return <span className="px-2 py-0.5 rounded-full text-xs bg-secondary text-muted-foreground animate-pulse">Menunggu</span>;
         }
     };
 
@@ -181,7 +182,7 @@ const History = () => {
                             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                             className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"
                         />
-                        <p className="text-muted-foreground mt-4">Memuat riwayat...</p>
+                        <p className="text-muted-foreground mt-4 animate-pulse">Memuat riwayat...</p>
                     </div>
                 ) : quizzes.length === 0 ? (
                     <motion.div
@@ -282,12 +283,15 @@ const History = () => {
                                                         className="rounded-lg bg-secondary/50 p-3 space-y-2"
                                                     >
                                                         <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="flex flex-wrap items-center gap-2">
                                                                 {getStatusBadge(session.status)}
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {getModeLabel(session.mode)}
+                                                                <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${getModeLabel(session.mode).color}`}>
+                                                                    {getModeLabel(session.mode).label}
                                                                 </span>
-                                                                <span className="text-xs text-muted-foreground">
+                                                                <span className="shrink-0 inline-flex items-center gap-1 text-xs py-0.5 px-2 rounded-full bg-muted-foreground/10 text-muted-foreground">
+                                                                    <User className="w-3 h-3" /> {session.participants.length}
+                                                                </span>
+                                                                <span className="shrink-0 text-xs text-muted-foreground">
                                                                     {new Date(session.created_at).toLocaleDateString("id-ID", {
                                                                         day: "numeric", month: "short", year: "numeric",
                                                                         hour: "2-digit", minute: "2-digit",
@@ -298,7 +302,7 @@ const History = () => {
                                                                 <Button
                                                                     size="sm"
                                                                     variant="ghost"
-                                                                    className="text-xs h-7 cursor-pointer bg-primary hover:bg-primary/80"
+                                                                    className="shrink-0 text-xs h-7 cursor-pointer bg-primary hover:bg-primary/80"
                                                                     onClick={() => viewResults(session.room_code)}
                                                                 >
                                                                     <Eye className="w-3 h-3 mr-1" />
@@ -324,7 +328,7 @@ const History = () => {
                                                                 {session.participants.slice(0, 5).map((p, pIdx) => (
                                                                     <div
                                                                         key={pIdx}
-                                                                        className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-background/50 text-xs"
+                                                                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/20 text-xs`}
                                                                     >
                                                                         <span>{pIdx === 0 ? "🥇" : pIdx === 1 ? "🥈" : pIdx === 2 ? "🥉" : p.avatar}</span>
                                                                         <span className="text-foreground font-medium">{p.guest_name}</span>
