@@ -9,6 +9,7 @@ export interface PowerUpState {
   fiftyFifty: boolean;
   extraTime: boolean;
   doublePoints: boolean;
+  freeze: boolean;
 }
 
 interface PowerUpBarProps {
@@ -16,10 +17,11 @@ interface PowerUpBarProps {
   onUseFiftyFifty: () => void;
   onUseExtraTime: () => void;
   onUseDoublePoints: () => void;
+  onUseFreeze: () => void;
   disabled?: boolean;
 }
 
-const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoints, disabled }: PowerUpBarProps) => {
+const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoints, onUseFreeze, disabled }: PowerUpBarProps) => {
   const items = [
     {
       key: "fiftyFifty",
@@ -48,6 +50,16 @@ const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoin
       color: "text-gold",
       desc: "Poin ganda",
     },
+    {
+      // efek freeze
+      key: "freeze",
+      label: "Freeze",
+      icon: Zap,
+      used: powerUps.freeze,
+      onUse: onUseFreeze,
+      color: "text-sky-500",
+      desc: "Beku sementara",
+    }
   ];
 
   return (

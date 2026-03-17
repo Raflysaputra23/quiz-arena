@@ -16,6 +16,7 @@ import { Sounds } from "@/lib/sounds";
 import { bgMusic } from "@/lib/bgMusic";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
+import { EfekFreeze } from "@/components/EfekFreeze";
 
 const optionLabels = ["A", "B", "C", "D"];
 const optionColors = [
@@ -30,7 +31,7 @@ const RESULT_DISPLAY_MS = 1000;
 const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
     const router = useRouter();
-    const { currentRoom, currentParticipant, isHost, hostPlaying, setHostPlaying, exitFullscreen, restoreParticipantSession, submitAnswer, nextQuestion, loadRoomByCode } = useQuiz();
+    const { currentRoom, currentParticipant, isHost, efekSkill, hostPlaying, setHostPlaying, exitFullscreen, restoreParticipantSession, submitAnswer, nextQuestion, loadRoomByCode } = useQuiz();
     const [timeLeft, setTimeLeft] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
     const [shortAnswer, setShortAnswer] = useState("");
@@ -40,7 +41,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const [earnedPoints, setEarnedPoints] = useState(0);
     const [timeExpired, setTimeExpired] = useState(false);
     const [showExpandSidebar, setShowExpandSidebar] = useState<boolean>(false);
-    const [allAnsweredCount, setAllAnswerCount] = useState<number>(0);
+    // const [allAnsweredCount, setAllAnswerCount] = useState<number>(0);
     const autoAdvanceTimer = useRef<NodeJS.Timeout | null>(null);
     const hasAutoAdvanced = useRef(false);
     const lastTickRef = useRef(0);
@@ -50,7 +51,8 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const supaRef = useRef(createClient());
 
     // Power-ups
-    const [powerUps, setPowerUps] = useState<PowerUpState>({ fiftyFifty: false, extraTime: false, doublePoints: false });
+    const [powerUps, setPowerUps] = useState<PowerUpState>({ fiftyFifty: false, extraTime: false, doublePoints: false, freeze: false });
+    const [freeze, setFreeze] = useState<boolean>(false);
     const [hiddenOptions, setHiddenOptions] = useState<string[]>([]);
     const [extraTimeAdded, setExtraTimeAdded] = useState(false);
     const [doublePointsActive, setDoublePointsActive] = useState(false);
@@ -64,7 +66,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const totalQuestions = currentRoom?.quiz.questions.length ?? 0;
     const canPlay = !isHost || hostPlaying;
     const participantCount = currentRoom?.participants.length ?? 0;
-    const answerCount =  currentRoom?.currentQuestionAnswerCount ?? 0;
+    const answerCount = currentRoom?.currentQuestionAnswerCount ?? 0;
     const allAnswered = participantCount > 0 && answerCount >= participantCount;
     const streak = currentParticipant?.streak ?? 0;
 
@@ -97,7 +99,26 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
         };
 
         restore();
-    }, [code, currentRoom, currentParticipant]);
+    }, [code, currentRoom, currentParticipant, router]);
+
+    useEffect(() => {
+        (async () => {
+            const supabase = supaRef.current;
+            const participantId = currentParticipant?.id;
+            const sessionId = currentRoom?.sessionId;
+            if (!participantId || !sessionId) return;
+            const { data } = await supabase.from("skill_participants")
+                .select("*")
+                .eq("id_participant", currentParticipant?.id)
+                .eq("id_session", currentRoom?.sessionId);
+
+            if (data && data.length > 0) {
+                setFreeze(true);
+                setPowerUps((p) => ({ ...p, freeze: true }));
+            }
+        })();
+
+    }, [currentParticipant?.id, currentRoom?.sessionId]);
 
     useEffect(() => {
         if (currentRoom?.status === "finished") {
@@ -147,36 +168,36 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
         })()
     }, [questionIdx, question?.id, currentRoom?.questionStartTime, currentParticipant?.answers]);
 
-    useEffect(() => {
-        const checkAllAnswered = async () => {
-            const supabase = supaRef.current;
-            const sessionId = currentRoom?.sessionId;
-            const questionId = currentRoom?.quiz.questions[currentRoom.currentQuestionIndex].id;
-            if (!sessionId && questionId) return;
+    // useEffect(() => {
+    //     const checkAllAnswered = async () => {
+    //         const supabase = supaRef.current;
+    //         const sessionId = currentRoom?.sessionId;
+    //         const questionId = currentRoom?.quiz.questions[currentRoom.currentQuestionIndex].id;
+    //         if (!sessionId && questionId) return;
 
-            try {
-                const { data: participants, error } = await supabase
-                    .from("session_participants")
-                    .select("id")
-                    .eq("session_id", sessionId);
-                if (error) throw error;
-                const participantIds = participants.map(p => p.id);
-                const { count } = await supabase
-                    .from("participant_answers")
-                    .select("*", { count: "exact", head: true })
-                    .eq("question_id", questionId)
-                    .in("participant_id", participantIds);
-                console.log("count: ", count);
-                setAllAnswerCount(count ?? 0);
-            } catch (error) {
-                console.log(error);
-            }
-        }
+    //         try {
+    //             const { data: participants, error } = await supabase
+    //                 .from("session_participants")
+    //                 .select("id")
+    //                 .eq("session_id", sessionId);
+    //             if (error) throw error;
+    //             const participantIds = participants.map(p => p.id);
+    //             const { count } = await supabase
+    //                 .from("participant_answers")
+    //                 .select("*", { count: "exact", head: true })
+    //                 .eq("question_id", questionId)
+    //                 .in("participant_id", participantIds);
+    //             console.log("count: ", count);
+    //             setAllAnswerCount(count ?? 0);
+    //         } catch (error) {
+    //             console.log(error);
+    //         }
+    //     }
 
-        (async () => {
-            await checkAllAnswered();
-        })()
-    }, [currentRoom?.sessionId, currentRoom?.quiz, currentRoom?.currentQuestionIndex]);
+    //     (async () => {
+    //         await checkAllAnswered();
+    //     })()
+    // }, [currentRoom?.sessionId, currentRoom?.quiz, currentRoom?.currentQuestionIndex]);
 
     const handleSubmit = useCallback(async (answer: string) => {
         if (submitLockRef.current) return;
@@ -371,6 +392,20 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
         setDoublePointsActive(true);
     }, []);
 
+    const handleFreeze = useCallback(async () => {
+        const supabase = createClient();
+        setPowerUps((p) => ({ ...p, freeze: true }));
+        setFreeze(true);
+        if (!currentParticipant?.id || !currentRoom?.sessionId) return;
+
+        await supabase.from('skill_participants')
+            .insert({
+                id_session: currentRoom?.sessionId,
+                id_participant: currentParticipant?.id,
+                skill: 'freeze'
+            });
+    }, [currentParticipant?.id, currentRoom?.sessionId]);
+
     const sortedParticipants = useMemo(() => {
         if (!currentRoom) return [];
         return [...currentRoom.participants].sort((a, b) => b.score - a.score);
@@ -454,6 +489,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                         onUseFiftyFifty={handleFiftyFifty}
                         onUseExtraTime={handleExtraTime}
                         onUseDoublePoints={handleDoublePoints}
+                        onUseFreeze={handleFreeze}
                         disabled={answered || showResult}
                     />
                 </div>
@@ -828,6 +864,11 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                         </motion.div>
                     </motion.div>
                 )}
+            </AnimatePresence>
+
+            {/* EFEK SKILL */}
+            <AnimatePresence>
+                <EfekFreeze active={efekSkill == 'freeze'} />
             </AnimatePresence>
         </div>
     );

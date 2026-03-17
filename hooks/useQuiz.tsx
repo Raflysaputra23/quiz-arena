@@ -59,6 +59,7 @@ interface QuizContextType {
     currentParticipant: Participant | null;
     isHost: boolean;
     hostPlaying: boolean;
+    efekSkill: EFEK_SKILL | null;
     setHostPlaying: (v: boolean) => void;
     createAndStartSession: (quizId: string, roomCode: string, userId: string) => Promise<string>;
     joinRoom: (code: string, name: string) => Promise<boolean>;
@@ -72,6 +73,8 @@ interface QuizContextType {
     enterFullscreen: () => void;
     exitFullscreen: () => void;
 }
+
+type EFEK_SKILL = "freeze" ;
 
 const QuizContext = createContext<QuizContextType | null>(null);
 
@@ -106,10 +109,12 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     const [currentParticipant, setCurrentParticipantState] = useState<Participant | null>(null);
     const [isHost, setIsHost] = useState(false);
     const [hostPlaying, setHostPlaying] = useState(false);
+    const [efekSkill, setEfekSkill] = useState<EFEK_SKILL | null>(null);
     const subscriptionsRef = useRef<any[]>([]);
     const supaRef = useRef(createClient());
     const answeredParticipantsRef = useRef<Set<string>>(new Set());
     const currentQuestionIdRef = useRef<string | null>(null);
+    const currentParticipantRef = useRef<Participant | null>(null);
 
 
     // Wrapper to also persist to sessionStorage
@@ -132,11 +137,19 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    const enterFullscreen = () => {
-        const elem = document.documentElement;
+    useEffect(() => {
+        currentParticipantRef.current = currentParticipant;
+    }, [currentParticipant])
 
-        if (elem.requestFullscreen) {
-            elem.requestFullscreen();
+    const enterFullscreen = () => {
+        try {
+            const elem = document.documentElement;
+    
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            }
+        } catch {
+            console.log("Enter fullscreen failed");
         }
     }
 
@@ -267,14 +280,17 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                     if (!answer?.participant_id) return prev;
                     if (!answer?.question_id) return prev;
 
+                    // ignore answers from other questions
                     if (answer.question_id !== currentQuestionIdRef.current) {
                         return prev;
                     }
 
+                    // ignore answers from already answered participants
                     if (answeredParticipantsRef.current.has(answer.participant_id)) {
                         return prev;
                     }
 
+                    // ignore answers from already answered participants
                     answeredParticipantsRef.current.add(answer.participant_id);
                     return {
                         ...prev,
@@ -284,7 +300,30 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             })
             .subscribe();
 
-        subscriptionsRef.current.push(sessionChannel, participantChannel, answersChannel);
+        const skillChannel = supabase.
+            channel(`skill-${sessionId}`)
+            .on("postgres_changes", {
+                event: "INSERT",
+                schema: "public",
+                table: "skill_participants",
+                filter: `id_session=eq.${sessionId}`
+            }, (payload) => {
+                const skill = payload.new as any;
+                if (!skill?.id_participant || !skill?.id_session) return;
+                const me = currentParticipantRef.current;
+                setEfekSkill(() => {
+                    if(me?.id === skill.id_participant) return null
+                    else return skill.skill
+                });
+
+                const timeout = setTimeout(() => {
+                    setEfekSkill(null);
+                    clearTimeout(timeout);
+                }, 4000);
+
+            }).subscribe();
+
+        subscriptionsRef.current.push(sessionChannel, participantChannel, answersChannel, skillChannel);
     }, []);
 
     const loadRoomByCode = useCallback(async (code: string): Promise<boolean> => {
@@ -652,7 +691,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 createAndStartSession, joinRoom, startQuiz, nextQuestion,
                 submitAnswer, setCurrentRoom, loadRoomByCode,
                 restoreParticipantSession, clearParticipantSession,
-                enterFullscreen, exitFullscreen
+                enterFullscreen, exitFullscreen, efekSkill
             }}
         >
             {children}
