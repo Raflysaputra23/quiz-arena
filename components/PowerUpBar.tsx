@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Shield, Clock, Star } from "lucide-react";
+import { motion } from "framer-motion";
+import { Zap, Shield, Clock, Star, Snowflake } from "lucide-react";
 import { Sounds } from "@/lib/sounds";
 
 export interface PowerUpState {
@@ -10,6 +9,7 @@ export interface PowerUpState {
   extraTime: boolean;
   doublePoints: boolean;
   freeze: boolean;
+  lightning: boolean;
 }
 
 interface PowerUpBarProps {
@@ -18,10 +18,11 @@ interface PowerUpBarProps {
   onUseExtraTime: () => void;
   onUseDoublePoints: () => void;
   onUseFreeze: () => void;
+  onUseLightning: () => void;
   disabled?: boolean;
 }
 
-const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoints, onUseFreeze, disabled }: PowerUpBarProps) => {
+const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoints, onUseFreeze, onUseLightning, disabled }: PowerUpBarProps) => {
   const items = [
     {
       key: "fiftyFifty",
@@ -32,15 +33,15 @@ const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoin
       color: "text-primary",
       desc: "Hapus 2 jawaban salah",
     },
-    {
-      key: "extraTime",
-      label: "+5s",
-      icon: Clock,
-      used: powerUps.extraTime,
-      onUse: onUseExtraTime,
-      color: "text-accent",
-      desc: "Tambah 5 detik",
-    },
+    // {
+    //   key: "extraTime",
+    //   label: "+5s",
+    //   icon: Clock,
+    //   used: powerUps.extraTime,
+    //   onUse: onUseExtraTime,
+    //   color: "text-accent",
+    //   desc: "Tambah 5 detik",
+    // },
     {
       key: "doublePoints",
       label: "2×",
@@ -54,16 +55,26 @@ const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoin
       // efek freeze
       key: "freeze",
       label: "Freeze",
-      icon: Zap,
+      icon: Snowflake,
       used: powerUps.freeze,
       onUse: onUseFreeze,
       color: "text-sky-500",
       desc: "Beku sementara",
+    },
+    {
+      // efek lightning
+      key: "lightning",
+      label: "Lightning",
+      icon: Zap,
+      used: powerUps.lightning,
+      onUse: onUseLightning,
+      color: "text-red-500",
+      desc: "Pengurangan point",
     }
   ];
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap items-center justify-center gap-2">
       {items.map((item) => (
         <motion.button
           key={item.key}

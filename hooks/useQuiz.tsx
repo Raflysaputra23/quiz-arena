@@ -74,7 +74,7 @@ interface QuizContextType {
     exitFullscreen: () => void;
 }
 
-type EFEK_SKILL = "freeze" ;
+type EFEK_SKILL = "freeze" | "lightning";
 
 const QuizContext = createContext<QuizContextType | null>(null);
 
@@ -115,6 +115,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     const answeredParticipantsRef = useRef<Set<string>>(new Set());
     const currentQuestionIdRef = useRef<string | null>(null);
     const currentParticipantRef = useRef<Participant | null>(null);
+    const currentRoomParticipantRef = useRef<Participant[] | null>(null);
 
 
     // Wrapper to also persist to sessionStorage
@@ -137,14 +138,20 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
+    // AMBIL PARTICIPANT SEKARANG
     useEffect(() => {
         currentParticipantRef.current = currentParticipant;
-    }, [currentParticipant])
+    }, [currentParticipant]);
+
+    // AMBIL SEMUA PARTICIPANT
+    useEffect(() => {
+        currentRoomParticipantRef.current = currentRoom?.participants || [];
+    }, [currentRoom?.participants]);
 
     const enterFullscreen = () => {
         try {
             const elem = document.documentElement;
-    
+
             if (elem.requestFullscreen) {
                 elem.requestFullscreen();
             }
@@ -312,8 +319,9 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 if (!skill?.id_participant || !skill?.id_session) return;
                 const me = currentParticipantRef.current;
                 setEfekSkill(() => {
-                    if(me?.id === skill.id_participant) return null
-                    else return skill.skill
+                    if (me?.id === skill.id_participant) return null
+                    else if(me?.id === skill.id_target) return skill.skill
+                    else if(skill.id_target === null) return skill.skill
                 });
 
                 const timeout = setTimeout(() => {

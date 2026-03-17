@@ -17,6 +17,7 @@ import { bgMusic } from "@/lib/bgMusic";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import { EfekFreeze } from "@/components/EfekFreeze";
+import { EfekLightning } from "@/components/EfekLightning";
 
 const optionLabels = ["A", "B", "C", "D"];
 const optionColors = [
@@ -51,7 +52,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const supaRef = useRef(createClient());
 
     // Power-ups
-    const [powerUps, setPowerUps] = useState<PowerUpState>({ fiftyFifty: false, extraTime: false, doublePoints: false, freeze: false });
+    const [powerUps, setPowerUps] = useState<PowerUpState>({ fiftyFifty: false, extraTime: false, doublePoints: false, freeze: false, lightning: false });
     const [freeze, setFreeze] = useState<boolean>(false);
     const [hiddenOptions, setHiddenOptions] = useState<string[]>([]);
     const [extraTimeAdded, setExtraTimeAdded] = useState(false);
@@ -113,8 +114,13 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 .eq("id_session", currentRoom?.sessionId);
 
             if (data && data.length > 0) {
-                setFreeze(true);
-                setPowerUps((p) => ({ ...p, freeze: true }));
+                data.forEach(e => {
+                    if(e.skill == "freeze") {
+                        setPowerUps((p) => ({ ...p, freeze: true }));
+                    } else if(e.skill == "lightning"){
+                        setPowerUps((p) => ({ ...p, lightning: true }));
+                    }
+                });
             }
         })();
 
@@ -406,10 +412,27 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
             });
     }, [currentParticipant?.id, currentRoom?.sessionId]);
 
+    const handleLightning = useCallback(async () => {
+        const supabase = createClient();
+        setPowerUps((p) => ({ ...p, lightning: true }));
+        if (!currentParticipant?.id || !currentRoom?.sessionId || !currentRoom?.participants) return;
+        // GET RANDOM PARTICIPANT AND NOT WITH MY PARTICIPANT
+        const others = currentRoom?.participants.filter(p => p.id !== currentParticipant?.id);
+        const randomParticipant = others[Math.floor(Math.random() * others.length)];
+
+        await supabase.from('skill_participants')
+            .insert({
+                id_session: currentRoom?.sessionId,
+                id_participant: currentParticipant?.id,
+                id_target: randomParticipant?.id,
+                skill: 'lightning'
+            });
+    }, [currentParticipant?.id, currentRoom?.sessionId, currentRoom?.participants]);
+
     const sortedParticipants = useMemo(() => {
-        if (!currentRoom) return [];
-        return [...currentRoom.participants].sort((a, b) => b.score - a.score);
-    }, [currentRoom]);
+        if (!currentRoom?.participants) return [];
+        return [...currentRoom?.participants].sort((a, b) => b.score - a.score);
+    }, [currentRoom?.participants]);
 
     if (!currentRoom || !question) {
         return (
@@ -483,13 +506,14 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
             {/* Power-ups bar */}
             {canPlay && !answered && (
-                <div className="px-4 pb-2 flex justify-center my-4">
+                <div className="px-4 pb-2 flex justify-center w-full my-4 gap-2">
                     <PowerUpBar
                         powerUps={powerUps}
                         onUseFiftyFifty={handleFiftyFifty}
                         onUseExtraTime={handleExtraTime}
                         onUseDoublePoints={handleDoublePoints}
                         onUseFreeze={handleFreeze}
+                        onUseLightning={handleLightning}
                         disabled={answered || showResult}
                     />
                 </div>
@@ -512,7 +536,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                 initial={{ opacity: 0, y: -20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 }}
-                                className="glass rounded-2xl p-8 text-center relative overflow-hidden"
+                                className={`glass ${efekSkill === 'lightning' ? 'bg-white! invisible' : 'visible'} transition duration-300 ease-in-out rounded-2xl p-8 text-center relative overflow-hidden`}
                             >
                                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-primary" />
                                 <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-primary/5 blur-3xl" />
@@ -867,8 +891,14 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
             </AnimatePresence>
 
             {/* EFEK SKILL */}
-            <AnimatePresence>
-                <EfekFreeze active={efekSkill == 'freeze'} />
+            <AnimatePresence mode='wait'>
+                {efekSkill === 'freeze' && (
+                    <EfekFreeze key="freeze" active />
+                )}
+
+                {efekSkill === 'lightning' && (
+                    <EfekLightning key="lightning" active />
+                )}
             </AnimatePresence>
         </div>
     );
