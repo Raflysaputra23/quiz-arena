@@ -453,7 +453,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
             <motion.div
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="p-4 flex items-center gap-3 flex-wrap"
+                className="p-4 flex items-center gap-3 flex-wrap w-full"
             >
                 <div className="flex items-center gap-2">
                     <Zap className="w-5 h-5 text-primary" />
@@ -464,7 +464,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
                 {/* Mode badge */}
                 {mode !== "normal" && (
-                    <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${mode === "speed" ? "bg-warning/20 text-warning" : "bg-destructive/20 text-destructive"
+                    <div className={`flex shrink-0 items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${mode === "speed" ? "bg-warning/20 text-warning" : "bg-destructive/20 text-destructive"
                         }`}>
                         {mode === "speed" ? <Gauge className="w-3 h-3" /> : <Skull className="w-3 h-3" />}
                         {mode === "speed" ? "Speed" : "Survival"}
@@ -473,7 +473,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
                 {/* Survival lives indicator */}
                 {mode === "survival" && canPlay && !eliminated && (
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-destructive/10 text-xs font-bold">
+                    <div className="flex shrink-0 items-center gap-1 px-2 py-1 rounded-full bg-destructive/10 text-xs font-bold">
                         <span className="text-destructive">❤️</span>
                         <span className={survivalWrongCount === 0 ? "text-success" : "text-warning"}>
                             {2 - survivalWrongCount}/2
@@ -488,13 +488,13 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 <div className="flex items-center gap-2">
                     <StreakIndicator streak={streak} />
                     {isHost && (
-                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary/15 border border-primary/30 text-muted-foreground text-xs">
+                        <div className="flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-full bg-primary/15 border border-primary/30 text-muted-foreground text-xs">
                             <Users className="w-3 h-3" />
                             {answerCount}/{participantCount}
                         </div>
                     )}
                     {isHost && !hostPlaying && (
-                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary/15 border border-primary/30 text-muted-foreground text-xs">
+                        <div className="flex shrink-0 items-center gap-1.5 px-3 py-2 rounded-full bg-primary/15 border border-primary/30 text-muted-foreground text-xs">
                             <Eye className="w-3.5 h-3.5" />
                             Pengawas
                         </div>

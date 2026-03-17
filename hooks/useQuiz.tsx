@@ -110,6 +110,9 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     const [isHost, setIsHost] = useState(false);
     const [hostPlaying, setHostPlaying] = useState(false);
     const [efekSkill, setEfekSkill] = useState<EFEK_SKILL | null>(null);
+    const [skills, setSkills] = useState<string[]>([]);
+    const skillQueueRef = useRef<any[]>([]);
+    const isProcessingRef = useRef(false);
     const subscriptionsRef = useRef<any[]>([]);
     const supaRef = useRef(createClient());
     const answeredParticipantsRef = useRef<Set<string>>(new Set());
@@ -165,6 +168,35 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             document.exitFullscreen();
         }
     }
+
+    const processQueue = () => {
+        if (isProcessingRef.current) return;
+        if (skillQueueRef.current.length === 0) return;
+        if (skillQueueRef.current.length > 50) skillQueueRef.current.shift();
+        
+        isProcessingRef.current = true;
+
+        const nextSkill = skillQueueRef.current.shift();
+        const me = currentParticipantRef.current;
+
+        let efek = null;
+
+        if (me?.id === nextSkill.id_participant) {
+            efek = null;
+        } else if (me?.id === nextSkill.id_target) {
+            efek = nextSkill.skill;
+        } else if (nextSkill.id_target === null) {
+            efek = nextSkill.skill;
+        }
+
+        setEfekSkill(efek);
+
+        setTimeout(() => {
+            setEfekSkill(null);
+            isProcessingRef.current = false;
+            processQueue();
+        }, 4000);
+    };
 
 
     const subscribeToSession = useCallback((sessionId: string) => {
@@ -317,22 +349,15 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             }, (payload) => {
                 const skill = payload.new as any;
                 if (!skill?.id_participant || !skill?.id_session) return;
-                const me = currentParticipantRef.current;
-                setEfekSkill(() => {
-                    if (me?.id === skill.id_participant) return null
-                    else if(me?.id === skill.id_target) return skill.skill
-                    else if(skill.id_target === null) return skill.skill
-                });
-
-                const timeout = setTimeout(() => {
-                    setEfekSkill(null);
-                    clearTimeout(timeout);
-                }, 4000);
-
+                setSkills((prev) => [...prev, skill.skill]);
+                skillQueueRef.current.push(skill);
+                processQueue();
             }).subscribe();
 
         subscriptionsRef.current.push(sessionChannel, participantChannel, answersChannel, skillChannel);
     }, []);
+
+
 
     const loadRoomByCode = useCallback(async (code: string): Promise<boolean> => {
         const supabase = supaRef.current;
