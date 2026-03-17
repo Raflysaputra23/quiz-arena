@@ -61,7 +61,6 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState<BattleParticipant | null>(null);
   const [attackAnimations, setAttackAnimations] = useState<AttackAnimation[]>([]);
-  const [lastAttackTime, setLastAttackTime] = useState(0);
   const [selectedTarget, setSelectedTarget] = useState<string | null>(null);
   const [myCorrectCount, setMyCorrectCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -266,7 +265,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
       p_damage: DAMAGE_PER_HIT
     });
 
-  }, [currentRoom, currentParticipant, lastAttackTime, gameOver]);
+  }, [currentRoom, currentParticipant, gameOver]);
 
   // Check win condition
   useEffect(() => {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, use } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Check, X, Loader2, Eye, Users, Trophy, Clock, Skull, Gauge } from "lucide-react";
+import { Zap, Check, X, Loader2, Eye, Users, Trophy, Clock, Skull, Gauge, Expand } from "lucide-react";
 import { useQuiz } from "@/hooks/useQuiz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,12 +39,15 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const [isCorrect, setIsCorrect] = useState(false);
     const [earnedPoints, setEarnedPoints] = useState(0);
     const [timeExpired, setTimeExpired] = useState(false);
+    const [showExpandSidebar, setShowExpandSidebar] = useState<boolean>(false);
+    const [allAnsweredCount, setAllAnswerCount] = useState<number>(0);
     const autoAdvanceTimer = useRef<NodeJS.Timeout | null>(null);
     const hasAutoAdvanced = useRef(false);
     const lastTickRef = useRef(0);
     const timeExpiredRef = useRef(false);
     const restoredRef = useRef(false);
     const submitLockRef = useRef(false);
+    const supaRef = useRef(createClient());
 
     // Power-ups
     const [powerUps, setPowerUps] = useState<PowerUpState>({ fiftyFifty: false, extraTime: false, doublePoints: false });
@@ -61,7 +64,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const totalQuestions = currentRoom?.quiz.questions.length ?? 0;
     const canPlay = !isHost || hostPlaying;
     const participantCount = currentRoom?.participants.length ?? 0;
-    const answerCount = currentRoom?.currentQuestionAnswerCount ?? 0;
+    const answerCount =  currentRoom?.currentQuestionAnswerCount ?? 0;
     const allAnswered = participantCount > 0 && answerCount >= participantCount;
     const streak = currentParticipant?.streak ?? 0;
 
@@ -90,7 +93,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
             const savedHostPlaying = localStorage.getItem("hostPlaying");
             if (savedHostPlaying === "true") {
                 setHostPlaying(true);
-            }
+            };
         };
 
         restore();
@@ -117,34 +120,68 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                     effectiveTimeLimit = Math.max(5, question.timeLimit - questionIdx * 2);
                 }
                 const remaining = Math.max(0, effectiveTimeLimit - elapsed);
+                const participantAnswered = currentParticipant?.answers[question.id];
+                const isAnswered = participantAnswered ? true : false;
+                const isCorrect = participantAnswered ? participantAnswered.correct : false;
+
                 setTimeLeft(remaining);
                 setSelectedAnswer(null);
                 setShortAnswer("");
-                setAnswered(false);
-                setShowResult(false);
-                setIsCorrect(false);
+                setAnswered(isAnswered);
+                setShowResult(isAnswered);
+                setIsCorrect(isCorrect);
                 setEarnedPoints(0);
                 setTimeExpired(false);
-                timeExpiredRef.current = false;
-                submitLockRef.current = false;
                 setHiddenOptions([]);
                 setExtraTimeAdded(false);
                 setDoublePointsActive(false);
+                timeExpiredRef.current = false;
+                submitLockRef.current = isAnswered;
                 lastTickRef.current = 0;
                 if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
-                // Prevent auto-advance from firing with stale timeExpired during reset
                 hasAutoAdvanced.current = true;
-                const resetTimer = setTimeout(() => { hasAutoAdvanced.current = false; }, 150);
+                const resetTimer = setTimeout(() => { hasAutoAdvanced.current = false; }, 500);
                 Sounds.whoosh();
                 return () => clearTimeout(resetTimer);
             }
         })()
-    }, [questionIdx, question?.id, currentRoom?.questionStartTime]);
+    }, [questionIdx, question?.id, currentRoom?.questionStartTime, currentParticipant?.answers]);
+
+    useEffect(() => {
+        const checkAllAnswered = async () => {
+            const supabase = supaRef.current;
+            const sessionId = currentRoom?.sessionId;
+            const questionId = currentRoom?.quiz.questions[currentRoom.currentQuestionIndex].id;
+            if (!sessionId && questionId) return;
+
+            try {
+                const { data: participants, error } = await supabase
+                    .from("session_participants")
+                    .select("id")
+                    .eq("session_id", sessionId);
+                if (error) throw error;
+                const participantIds = participants.map(p => p.id);
+                const { count } = await supabase
+                    .from("participant_answers")
+                    .select("*", { count: "exact", head: true })
+                    .eq("question_id", questionId)
+                    .in("participant_id", participantIds);
+                console.log("count: ", count);
+                setAllAnswerCount(count ?? 0);
+            } catch (error) {
+                console.log(error);
+            }
+        }
+
+        (async () => {
+            await checkAllAnswered();
+        })()
+    }, [currentRoom?.sessionId, currentRoom?.quiz, currentRoom?.currentQuestionIndex]);
 
     const handleSubmit = useCallback(async (answer: string) => {
         if (submitLockRef.current) return;
         submitLockRef.current = true;
-        
+
         if (answered || eliminated) return;
         setAnswered(true);
 
@@ -704,9 +741,19 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                         className="lg:w-72 shrink-0"
                     >
                         <div className="glass rounded-2xl p-4 space-y-3 sticky top-4">
-                            <div className="flex items-center gap-2 text-sm font-poppins font-bold text-foreground">
-                                <Trophy className="w-4 h-4 text-primary" />
-                                Live Skor
+                            <div className="flex items-center justify-between gap-2 text-sm font-poppins font-bold text-foreground">
+                                <div className="flex items-center gap-2">
+                                    <Trophy className="w-4 h-4 text-primary" />
+                                    Live Skor
+                                </div>
+                                <Button
+                                    variant={"ghost"}
+                                    size={"icon"}
+                                    className="cursor-pointer"
+                                    onClick={() => setShowExpandSidebar(true)}
+                                >
+                                    <Expand />
+                                </Button>
                             </div>
                             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
                                 {sortedParticipants.slice(0, 8).map((p, i) => (
@@ -729,6 +776,59 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                     </motion.div>
                 )}
             </main>
+
+            {/* EXPAND SIDEBAR LIVE SCORE */}
+            <AnimatePresence>
+                {showExpandSidebar && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-start justify-center p-4 py-8 bg-background/80 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="glass rounded-3xl p-6 max-w-2xl w-full space-y-5 max-h-[85vh] overflow-y-auto"
+                        >
+                            {/* Close button */}
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Trophy className="w-4 h-4 text-primary" />
+                                    <h1 className="text-foreground font-bold text-lg font-poppins">Live Skor</h1>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setShowExpandSidebar(false)}
+                                    className="text-muted-foreground hover:bg-destructive hover:text-foreground cursor-pointer"
+                                >
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+                                {sortedParticipants.slice(0, 8).map((p, i) => (
+                                    <motion.div
+                                        key={p.id}
+                                        layout
+                                        initial={{ opacity: 0, x: 10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: i * 0.05 }}
+                                        className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 shadow"
+                                    >
+                                        <span className="w-5 text-center text-xs font-bold text-muted-foreground">{i + 1}</span>
+                                        <span className="text-lg">{p.avatar}</span>
+                                        <span className="flex-1 text-sm font-medium text-foreground truncate">{p.name}</span>
+                                        <span className="text-xs font-poppins font-bold text-primary">{p.score}</span>
+                                    </motion.div>
+                                ))}
+                            </div>
+
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
