@@ -84,6 +84,7 @@ const PARTICIPANT_STORAGE_KEY = "quizarena_participant";
 const ROOM_CODE_STORAGE_KEY = "quizarena_room_code";
 
 
+
 function saveParticipantToStorage(participant: Participant | null, roomCode?: string) {
     if (participant) {
         sessionStorage.setItem(PARTICIPANT_STORAGE_KEY, JSON.stringify(participant));
@@ -535,7 +536,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                     .single();
                 const joined = await joinRoomAsHost(currentRoom.sessionId, profile?.nama_lengkap || "Host");
                 if (!joined) return
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, 800));
             }
         }
 

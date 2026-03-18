@@ -27,7 +27,7 @@ const optionColors = [
     { bg: "bg-gradient-danger", border: "border-destructive/40" },
 ];
 
-const RESULT_DISPLAY_MS = 1000;
+const RESULT_DISPLAY_MS = 1500;
 
 const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
@@ -236,7 +236,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                         setEliminated(true);
                         // Sync elimination to DB so host can detect all-eliminated
                         if (currentParticipant) {
-                            const supabase = createClient();
+                            const supabase = supaRef.current;
                             await supabase
                                 .from("session_participants")
                                 .update({ is_eliminated: true })
@@ -310,15 +310,10 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     // Auto-advance + survival all-eliminated check
     useEffect(() => {
         if (!isHost || !currentRoom || hasAutoAdvanced.current) return;
-
-        // Only react to timeExpired or answerCount changes
         if (!timeExpired && !allAnswered) return;
 
-        // When not all answered by local state but time hasn't expired, skip
-        // When time expired, we always advance
-        // When allAnswered from local state, verify with DB before advancing
         const verifyAndAdvance = async () => {
-            const supabase = createClient();
+            const supabase = supaRef.current;
 
             // If triggered by allAnswered (not timeout), verify actual counts from DB
             if (!timeExpired) {
@@ -399,7 +394,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     }, []);
 
     const handleFreeze = useCallback(async () => {
-        const supabase = createClient();
+        const supabase = supaRef.current;
         setPowerUps((p) => ({ ...p, freeze: true }));
         setFreeze(true);
         if (!currentParticipant?.id || !currentRoom?.sessionId) return;
@@ -413,7 +408,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     }, [currentParticipant?.id, currentRoom?.sessionId]);
 
     const handleLightning = useCallback(async () => {
-        const supabase = createClient();
+        const supabase = supaRef.current;
         setPowerUps((p) => ({ ...p, lightning: true }));
         if (!currentParticipant?.id || !currentRoom?.sessionId || !currentRoom?.participants) return;
         // GET RANDOM PARTICIPANT AND NOT WITH MY PARTICIPANT
