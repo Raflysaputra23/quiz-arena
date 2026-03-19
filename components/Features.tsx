@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { BarChart3, Clock, Gauge, ImageIcon, Plus, Skull, Sparkles, Trophy, Users } from "lucide-react";
+import { BarChart3, Clock, Gauge, ImageIcon, Plus, Skull, Sparkles, Swords, Trophy, Users } from "lucide-react";
 
 const Features = () => {
     const features = [
@@ -9,6 +9,7 @@ const Features = () => {
         { icon: Users, title: "Multiplayer Real-Time", desc: "Mainkan quiz bersama teman secara live. Semua pemain melihat soal dan menjawab secara bersamaan.", color: "from-accent to-primary" },
         { icon: Trophy, title: "Leaderboard Live", desc: "Lihat peringkat dan skor semua pemain secara real-time. Siapa yang paling cepat dan akurat?", color: "from-[hsl(var(--gold))] to-[hsl(var(--warning))]" },
         { icon: Gauge, title: "Mode Speed", desc: "Waktu menjawab semakin pendek setiap soal! Uji kecepatan berpikir kamu di bawah tekanan.", color: "from-[hsl(var(--warning))] to-[hsl(var(--destructive))]" },
+        { icon: Swords, title: "Mode Battle", desc: "Serang pemain lain sambil menjawab soal! Pertama jawab 10 soal benar semua akan jadi pemenang!", color: "from-destructive to-accent" },
         { icon: Skull, title: "Mode Survival", desc: "Salah 2 kali langsung tersingkir! Hanya yang paling pintar yang bisa bertahan sampai akhir.", color: "from-[hsl(var(--destructive))] to-primary" },
         { icon: Sparkles, title: "Power-Ups", desc: "Gunakan item spesial seperti 50:50, Waktu Tambahan, dan Poin Ganda untuk keuntungan strategis.", color: "from-primary to-[hsl(var(--gold))]" },
         { icon: Clock, title: "Timer Dinamis", desc: "Setiap soal punya batas waktu. Jawab lebih cepat untuk mendapat bonus poin tambahan!", color: "from-accent to-[hsl(var(--success))]" },
