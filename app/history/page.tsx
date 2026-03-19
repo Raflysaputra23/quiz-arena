@@ -1,15 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, ArrowLeft, Clock, Users, Trophy, Trash2, Play, Plus, ChevronDown, ChevronUp, Eye, LogIn, User } from "lucide-react";
+import { Zap, ArrowLeft, Clock, Users, Trophy, Trash2, Play, Plus, ChevronDown, ChevronUp, Eye, LogIn, User, Star, Shield, Snowflake, Loader } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import { toastError, toastSuccess } from "@/lib/toast";
 import LoadingScreen from "@/components/LoadingScreen";
+import { FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface SessionHistory {
     id: string;
@@ -37,12 +39,22 @@ const History = () => {
     const { user, loading: authLoading } = useAuth();
     const [quizzes, setQuizzes] = useState<QuizHistory[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingStart, setLoadingStart] = useState(false);
     const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [showModalPower, setShowModalPower] = useState<string | null>(null);
+    const [selected, setSelected] = useState({
+        doublePoints: true,
+        fiftyFifty: true,
+        lightning: true,
+        freeze: true
+    });
+    const supaRef = useRef(createClient());
+
 
     const fetchQuizzes = async () => {
         if (!user) return;
-        const supabase = createClient();
+        const supabase = supaRef.current;
         const { data, error } = await supabase
             .from("quizzes")
             .select(`
@@ -100,9 +112,8 @@ const History = () => {
 
 
     const deleteQuiz = async (id: string) => {
-        const supabase = createClient();
+        const supabase = supaRef.current;
         const { error } = await supabase.from("quizzes").delete().eq("id", id);
-        console.log(error);
         if (error) { toastError("Gagal menghapus quiz"); return; }
         toastSuccess("Quiz dihapus");
         setQuizzes((prev) => prev.filter((q) => q.id !== id));
@@ -110,18 +121,22 @@ const History = () => {
 
     const startNewSession = async (quizId: string) => {
         if (!user) return;
-        const supabase = createClient();
+        setLoadingStart(true);
+        const supabase = supaRef.current;
         const newCode = Array.from({ length: 6 }, () =>
             "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
         ).join("");
 
+        const powerUpsJson = JSON.stringify(selected);
         const { error } = await supabase.from("quiz_sessions").insert({
             quiz_id: quizId,
             host_id: user.id,
             room_code: newCode,
+            allowed_skill: powerUpsJson,
             status: "waiting",
         });
         if (error) { toastError("Gagal membuat sesi"); return; }
+        setLoadingStart(false);
         router.push(`/lobby/${newCode}`);
     };
 
@@ -235,7 +250,7 @@ const History = () => {
                                         <Button
                                             size="sm"
                                             variant={'primary'}
-                                            onClick={() => startNewSession(quiz.id)}
+                                            onClick={() => setShowModalPower(quiz.id)}
                                             title="Main Lagi"
                                         >
                                             <Play className="w-4 h-4 mr-1" />
@@ -380,7 +395,7 @@ const History = () => {
                                     variant="destructive"
                                     size="sm"
                                     className="cursor-pointer"
-                                    onClick={() => {deleteQuiz(selectedId); setSelectedId(null);}}
+                                    onClick={() => { deleteQuiz(selectedId); setSelectedId(null); }}
                                 >
                                     Hapus
                                 </Button>
@@ -391,6 +406,112 @@ const History = () => {
                                     onClick={() => setSelectedId(null)}
                                 >
                                     Batal
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                }
+            </AnimatePresence>
+
+            {/* MODAL START QUIZ */}
+            <AnimatePresence mode="wait">
+                {showModalPower &&
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={() => setShowModalPower(null)}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="glass rounded-3xl p-6 max-w-lg w-full space-y-5 max-h-[85vh]"
+                        >
+                            <h1 className="text-2xl font-bold font-poppins">Power Ups</h1>
+                            <FieldGroup className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                                <FieldLabel onClick={() =>
+                                    setSelected(prev => ({
+                                        ...prev,
+                                        doublePoints: !prev.doublePoints
+                                    }))
+                                }
+                                    className={"p-4 bg-gold/10 w-full text-gold border-gold rounded-xl flex gap-4 border transition has-data-[state=checked]:border-gold has-data-[state=checked]:bg-gold/20 dark:has-data-[state=checked]:bg-gold/20"}>
+                                    <Checkbox checked={selected.doublePoints} className="text-gold border-gold peer" />
+                                    <FieldContent>
+                                        <FieldTitle><Star className="w-4 h-4" /> 2x Double Points</FieldTitle>
+                                        <FieldDescription>
+                                            Dapatkan 2x poin untuk jawaban benar
+                                        </FieldDescription>
+                                    </FieldContent>
+                                </FieldLabel>
+                                <FieldLabel onClick={() =>
+                                    setSelected(prev => ({
+                                        ...prev,
+                                        fiftyFifty: !prev.fiftyFifty
+                                    }))
+                                }
+                                    className="bg-primary/10 w-full border text-primary border-primary p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/20 dark:has-data-[state=checked]:bg-primary/20">
+                                    <Checkbox checked={selected.fiftyFifty} className="text-primary border-primary" />
+                                    <FieldContent>
+                                        <FieldTitle><Shield className="w-4 h-4" /> Fifty Fifty</FieldTitle>
+                                        <FieldDescription>
+                                            Hapus 2 pilihan ganda jawaban salah
+                                        </FieldDescription>
+                                    </FieldContent>
+                                </FieldLabel>
+                                <FieldLabel onClick={() =>
+                                    setSelected(prev => ({
+                                        ...prev,
+                                        lightning: !prev.lightning
+                                    }))
+                                }
+                                    className="bg-red-500/10 w-full border text-red-500 border-red-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-red-500 has-data-[state=checked]:bg-red-500/20 dark:has-data-[state=checked]:bg-red-500/20">
+                                    <Checkbox checked={selected.lightning} className="text-red-500 border-red-500" />
+                                    <FieldContent>
+                                        <FieldTitle><Zap className="w-4 h-4" /> Efek Lightning</FieldTitle>
+                                        <FieldDescription>
+                                            Menghilangkan pertanyaan selama 4 detik
+                                        </FieldDescription>
+                                    </FieldContent>
+                                </FieldLabel>
+                                <FieldLabel onClick={() =>
+                                    setSelected(prev => ({
+                                        ...prev,
+                                        freeze: !prev.freeze
+                                    }))
+                                }
+                                    className="bg-sky-500/10 w-full border text-sky-500 border-sky-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-sky-500 has-data-[state=checked]:bg-sky-500/20 dark:has-data-[state=checked]:bg-sky-500/20">
+                                    <Checkbox checked={selected.freeze} className="text-sky-500 border-sky-500" />
+                                    <FieldContent>
+                                        <FieldTitle><Snowflake className="w-4 h-4" /> Efek Freeze</FieldTitle>
+                                        <FieldDescription>
+                                            Tidak dapat menjawab selama 4 detik
+                                        </FieldDescription>
+                                    </FieldContent>
+                                </FieldLabel>
+                            </FieldGroup>
+                            <div className="flex items-center justify-end gap-1">
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="cursor-pointer"
+                                    onClick={() => setShowModalPower(null)}
+                                >
+                                    Batal
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className="cursor-pointer"
+                                    variant="primary"
+                                    onClick={() => startNewSession(showModalPower)}
+                                    disabled={loadingStart}
+                                >
+                                    Mulai
+                                    {loadingStart && <Loader className="ml-1 animate-spin" />}
                                 </Button>
                             </div>
                         </motion.div>

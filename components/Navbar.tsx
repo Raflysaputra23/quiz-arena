@@ -77,6 +77,8 @@ const Navbar = () => {
                     )}
                 </div>
             </div>
+
+            {/* MODAL LOGOUT */}
             <AnimatePresence mode="wait">
                 {showModal &&
                     <motion.div

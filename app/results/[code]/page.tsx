@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Trophy, Medal, Home, Zap, Crown, BarChart3, Clock, Target, TrendingUp } from "lucide-react";
 import { useQuiz } from "@/hooks/useQuiz";
@@ -32,6 +32,7 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
   const [stats, setStats] = useState<QuestionStat[]>([]);
   const [showStats, setShowStats] = useState(false);
   const [confettiFired, setConfettiFired] = useState(false);
+  const supaRef = useRef(createClient());
 
   useEffect(() => {
     if (!currentRoom && code) {
@@ -43,31 +44,31 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
 
   // Fire confetti and fanfare
   useEffect(() => {
-    (async() => {
-        if (currentRoom && !confettiFired) {
-          setConfettiFired(true);
-          Sounds.fanfare();
-          const duration = 3000;
-          const end = Date.now() + duration;
-          const frame = () => {
-            confetti({
-              particleCount: 3,
-              angle: 60,
-              spread: 55,
-              origin: { x: 0, y: 0.7 },
-              colors: ["#6366f1", "#06b6d4", "#f59e0b", "#ef4444"],
-            });
-            confetti({
-              particleCount: 3,
-              angle: 120,
-              spread: 55,
-              origin: { x: 1, y: 0.7 },
-              colors: ["#6366f1", "#06b6d4", "#f59e0b", "#ef4444"],
-            });
-            if (Date.now() < end) requestAnimationFrame(frame);
-          };
-          frame();
-        }
+    (async () => {
+      if (currentRoom && !confettiFired) {
+        setConfettiFired(true);
+        Sounds.fanfare();
+        const duration = 3000;
+        const end = Date.now() + duration;
+        const frame = () => {
+          confetti({
+            particleCount: 3,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0, y: 0.7 },
+            colors: ["#6366f1", "#06b6d4", "#f59e0b", "#ef4444"],
+          });
+          confetti({
+            particleCount: 3,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1, y: 0.7 },
+            colors: ["#6366f1", "#06b6d4", "#f59e0b", "#ef4444"],
+          });
+          if (Date.now() < end) requestAnimationFrame(frame);
+        };
+        frame();
+      }
     })()
   }, [currentRoom]);
 
@@ -77,7 +78,7 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
     const loadStats = async () => {
       const participantIds = currentRoom.participants.map((p) => p.id);
       if (participantIds.length === 0) return;
-      const supabase = createClient();
+      const supabase = supaRef.current;
 
       const questionStats: QuestionStat[] = [];
       for (const q of currentRoom.quiz.questions) {

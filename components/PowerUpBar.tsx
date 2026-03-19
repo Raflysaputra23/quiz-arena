@@ -19,10 +19,11 @@ interface PowerUpBarProps {
   onUseDoublePoints: () => void;
   onUseFreeze: () => void;
   onUseLightning: () => void;
+  allowed_skill: string;
   disabled?: boolean;
 }
 
-const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoints, onUseFreeze, onUseLightning, disabled }: PowerUpBarProps) => {
+const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoints, onUseFreeze, onUseLightning, allowed_skill, disabled }: PowerUpBarProps) => {
   const items = [
     {
       key: "fiftyFifty",
@@ -69,42 +70,47 @@ const PowerUpBar = ({ powerUps, onUseFiftyFifty, onUseExtraTime, onUseDoublePoin
       used: powerUps.lightning,
       onUse: onUseLightning,
       color: "text-red-500",
-      desc: "Pengurangan point",
+      desc: "Hilangkan pertanyaan",
     }
   ];
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      {items.map((item) => (
-        <motion.button
-          key={item.key}
-          whileHover={!item.used && !disabled ? { scale: 1.1 } : {}}
-          whileTap={!item.used && !disabled ? { scale: 0.9 } : {}}
-          onClick={() => {
-            if (!item.used && !disabled) {
-              Sounds.pop();
-              item.onUse();
-            }
-          }}
-          disabled={item.used || disabled}
-          className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-            item.used
-              ? "bg-secondary/30 text-muted-foreground/40 line-through"
-              : "glass hover:shadow-glow cursor-pointer"
-          }`}
-          title={item.desc}
-        >
-          <item.icon className={`w-3.5 h-3.5 ${item.used ? "text-muted-foreground/40" : item.color}`} />
-          <span className={item.used ? "" : item.color}>{item.label}</span>
-          {!item.used && !disabled && (
-            <motion.div
-              className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primary"
-              animate={{ scale: [1, 1.3, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-          )}
-        </motion.button>
-      ))}
+      {items.map((item) => {
+        if (JSON.parse(allowed_skill)[item.key]) {
+          return (
+            <motion.button
+              key={item.key}
+              whileHover={!item.used && !disabled ? { scale: 1.1 } : {}}
+              whileTap={!item.used && !disabled ? { scale: 0.9 } : {}}
+              onClick={() => {
+                if (!item.used && !disabled) {
+                  Sounds.pop();
+                  item.onUse();
+                }
+              }}
+              disabled={item.used || disabled}
+              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${item.used
+                ? "bg-secondary/30 text-muted-foreground/40 line-through"
+                : "glass hover:shadow-glow cursor-pointer"
+                }`}
+              title={item.desc}
+            >
+              <item.icon className={`w-3.5 h-3.5 ${item.used ? "text-muted-foreground/40" : item.color}`} />
+              <span className={item.used ? "" : item.color}>{item.label}</span>
+              {!item.used && !disabled && (
+                <motion.div
+                  className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primary"
+                  animate={{ scale: [1, 1.3, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                />
+              )}
+            </motion.button>
+          );
+        } else {
+          return null;
+        }
+      }).flat()}
     </div>
   );
 };

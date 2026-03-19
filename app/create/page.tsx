@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Sparkles, Globe, Lock, Minus } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Sparkles, Globe, Lock, Minus, Snowflake, Shield, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import { toastError, toastSuccess } from "@/lib/toast";
 import Image from "next/image";
+import { FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 interface LocalOption {
     id: string;
@@ -58,6 +61,13 @@ const CreateQuiz = () => {
     const [qPoints, setQPoints] = useState(1000);
     const [qImageUrl, setQImageUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
+    const [selected, setSelected] = useState({
+        doublePoints: true,
+        fiftyFifty: true,
+        lightning: true,
+        freeze: true
+    });
+    const supaRef = useRef(createClient());
 
     useEffect(() => {
         if (!user) { router.push("/login"); }
@@ -146,7 +156,7 @@ const CreateQuiz = () => {
         const ext = file.name.split(".").pop();
         const path = `${crypto.randomUUID()}.${ext}`;
 
-        const supabase = createClient();
+        const supabase = supaRef.current;
         const { error } = await supabase.storage.from("question-images").upload(path, file);
         if (error) { toastError("Gagal mengupload gambar!"); setUploading(false); return; }
 
@@ -220,7 +230,7 @@ const CreateQuiz = () => {
             const roomCode = Array.from({ length: 6 }, () =>
                 "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
             ).join("");
-            const supabase = createClient();
+            const supabase = supaRef.current;
             const { data: quiz, error: quizError } = await supabase
                 .from("quizzes")
                 .insert({ id_user: user.id, title: title.trim(), description: description.trim(), room_code: roomCode, is_public: isPublic })
@@ -277,9 +287,10 @@ const CreateQuiz = () => {
                 }
             }
 
+            const powerUpsJson = JSON.stringify(selected);
             const { error: sessionError } = await supabase
                 .from("quiz_sessions")
-                .insert({ quiz_id: quiz.id, host_id: user.id, room_code: roomCode, status: "waiting" });
+                .insert({ quiz_id: quiz.id, host_id: user.id, room_code: roomCode, status: "waiting", allowed_skill: powerUpsJson });
 
             if (sessionError) { toastError("Gagal membuat sesi!"); return; }
 
@@ -363,6 +374,74 @@ const CreateQuiz = () => {
                                 AI Generate
                             </Button>
                         </div>
+                    </div>
+                    <div className="space-y-3 glass rounded-xl p-6">
+                        <section className="flex items-center justify-between">
+                            <h1 className="font-semibold font-poppins">Power Ups</h1>
+                            <p>Dipilih: {Object.entries(selected).map(([key, value]) => value ? key : null).filter(Boolean).length}</p>
+                        </section>
+                        <FieldGroup className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    doublePoints: !prev.doublePoints
+                                }))
+                            }
+                                className={"p-4 bg-gold/10 w-full text-gold border-gold rounded-xl flex gap-4 border transition has-data-[state=checked]:border-gold has-data-[state=checked]:bg-gold/20 dark:has-data-[state=checked]:bg-gold/20"}>
+                                <Checkbox checked={selected.doublePoints} className="text-gold border-gold peer" />
+                                <FieldContent>
+                                    <FieldTitle><Star className="w-4 h-4" /> 2x Double Points</FieldTitle>
+                                    <FieldDescription>
+                                        Dapatkan 2x poin untuk jawaban benar
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    fiftyFifty: !prev.fiftyFifty
+                                }))
+                            }
+                                className="bg-primary/10 w-full border text-primary border-primary p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/20 dark:has-data-[state=checked]:bg-primary/20">
+                                <Checkbox checked={selected.fiftyFifty} className="text-primary border-primary" />
+                                <FieldContent>
+                                    <FieldTitle><Shield className="w-4 h-4" /> Fifty Fifty</FieldTitle>
+                                    <FieldDescription>
+                                        Hapus 2 pilihan ganda jawaban salah
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    lightning: !prev.lightning
+                                }))
+                            }
+                                className="bg-red-500/10 w-full border text-red-500 border-red-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-red-500 has-data-[state=checked]:bg-red-500/20 dark:has-data-[state=checked]:bg-red-500/20">
+                                <Checkbox checked={selected.lightning} className="text-red-500 border-red-500" />
+                                <FieldContent>
+                                    <FieldTitle><Zap className="w-4 h-4" /> Efek Lightning</FieldTitle>
+                                    <FieldDescription>
+                                        Menghilangkan pertanyaan selama 4 detik
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    freeze: !prev.freeze
+                                }))
+                            }
+                                className="bg-sky-500/10 w-full border text-sky-500 border-sky-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-sky-500 has-data-[state=checked]:bg-sky-500/20 dark:has-data-[state=checked]:bg-sky-500/20">
+                                <Checkbox checked={selected.freeze} className="text-sky-500 border-sky-500" />
+                                <FieldContent>
+                                    <FieldTitle><Snowflake className="w-4 h-4" /> Efek Freeze</FieldTitle>
+                                    <FieldDescription>
+                                        Tidak dapat menjawab selama 4 detik
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                        </FieldGroup>
                     </div>
 
                     {/* AI Generate Panel */}

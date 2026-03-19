@@ -33,11 +33,11 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
     const [error, setError] = useState("");
     const [timeLeft, setTimeLeft] = useState(0);
     const subsRef = useRef<any[]>([]);
-    const supabaseRef = useRef(createClient());
+    const supaRef = useRef(createClient());
 
     const loadSession = async (roomCode: string) => {
         setLoading(true);
-        const supabase = supabaseRef.current;
+        const supabase = supaRef.current;
         const { data: session } = await supabase
             .from("quiz_sessions")
             .select("*, quizzes(*, questions(*, question_options(*)))")
@@ -147,7 +147,7 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
     };
 
     useEffect(() => {
-        const supabase = supabaseRef.current;
+        const supabase = supaRef.current;
         (async() => {
             if (code) await loadSession(code);
         })()

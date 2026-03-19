@@ -507,9 +507,10 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
             {/* Power-ups bar */}
             {canPlay && !answered && (
-                <div className="px-4 pb-2 flex justify-center w-full my-4 gap-2">
+                <div className="px-4 pb-2 flex justify-center w-full my-2 gap-2">
                     <PowerUpBar
                         powerUps={powerUps}
+                        allowed_skill={currentRoom.allowed_skill}
                         onUseFiftyFifty={handleFiftyFifty}
                         onUseExtraTime={handleExtraTime}
                         onUseDoublePoints={handleDoublePoints}
@@ -522,7 +523,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
             {/* Main content */}
             <main className="flex-1 flex flex-col lg:flex-row gap-6 px-4 pb-20 max-w-6xl mx-auto w-full">
-                <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="flex-1 flex flex-col items-center justify-start">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={question.id}

@@ -46,6 +46,7 @@ export interface Participant {
 export interface Room {
     sessionId: string;
     quiz: Quiz;
+    allowed_skill: string;
     participants: Participant[];
     status: "waiting" | "playing" | "finished";
     currentQuestionIndex: number;
@@ -411,6 +412,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
                 answers: {},
             })),
             status: session.status as any,
+            allowed_skill: session.allowed_skill,
             currentQuestionIndex: session.current_question_index,
             questionStartTime: session.question_start_time ? new Date(session.question_start_time).getTime() : 0,
             currentQuestionAnswerCount: 0,
