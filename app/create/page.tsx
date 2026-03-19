@@ -354,6 +354,7 @@ const CreateQuiz = () => {
                             maxLength={500}
                         />
                     </div>
+
                     <div className="space-y-3 glass rounded-xl p-6">
                         <h1 className="font-semibold font-poppins">Visibility & AI Generate</h1>
                         <div className="flex items-center justify-center gap-2">
@@ -374,74 +375,6 @@ const CreateQuiz = () => {
                                 AI Generate
                             </Button>
                         </div>
-                    </div>
-                    <div className="space-y-3 glass rounded-xl p-6">
-                        <section className="flex items-center justify-between">
-                            <h1 className="font-semibold font-poppins">Power Ups</h1>
-                            <p>Dipilih: {Object.entries(selected).map(([key, value]) => value ? key : null).filter(Boolean).length}</p>
-                        </section>
-                        <FieldGroup className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                            <FieldLabel onClick={() =>
-                                setSelected(prev => ({
-                                    ...prev,
-                                    doublePoints: !prev.doublePoints
-                                }))
-                            }
-                                className={"p-4 bg-gold/10 w-full text-gold border-gold rounded-xl flex gap-4 border transition has-data-[state=checked]:border-gold has-data-[state=checked]:bg-gold/20 dark:has-data-[state=checked]:bg-gold/20"}>
-                                <Checkbox checked={selected.doublePoints} className="text-gold border-gold peer" />
-                                <FieldContent>
-                                    <FieldTitle><Star className="w-4 h-4" /> 2x Double Points</FieldTitle>
-                                    <FieldDescription>
-                                        Dapatkan 2x poin untuk jawaban benar
-                                    </FieldDescription>
-                                </FieldContent>
-                            </FieldLabel>
-                            <FieldLabel onClick={() =>
-                                setSelected(prev => ({
-                                    ...prev,
-                                    fiftyFifty: !prev.fiftyFifty
-                                }))
-                            }
-                                className="bg-primary/10 w-full border text-primary border-primary p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/20 dark:has-data-[state=checked]:bg-primary/20">
-                                <Checkbox checked={selected.fiftyFifty} className="text-primary border-primary" />
-                                <FieldContent>
-                                    <FieldTitle><Shield className="w-4 h-4" /> Fifty Fifty</FieldTitle>
-                                    <FieldDescription>
-                                        Hapus 2 pilihan ganda jawaban salah
-                                    </FieldDescription>
-                                </FieldContent>
-                            </FieldLabel>
-                            <FieldLabel onClick={() =>
-                                setSelected(prev => ({
-                                    ...prev,
-                                    lightning: !prev.lightning
-                                }))
-                            }
-                                className="bg-red-500/10 w-full border text-red-500 border-red-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-red-500 has-data-[state=checked]:bg-red-500/20 dark:has-data-[state=checked]:bg-red-500/20">
-                                <Checkbox checked={selected.lightning} className="text-red-500 border-red-500" />
-                                <FieldContent>
-                                    <FieldTitle><Zap className="w-4 h-4" /> Efek Lightning</FieldTitle>
-                                    <FieldDescription>
-                                        Menghilangkan pertanyaan selama 4 detik
-                                    </FieldDescription>
-                                </FieldContent>
-                            </FieldLabel>
-                            <FieldLabel onClick={() =>
-                                setSelected(prev => ({
-                                    ...prev,
-                                    freeze: !prev.freeze
-                                }))
-                            }
-                                className="bg-sky-500/10 w-full border text-sky-500 border-sky-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-sky-500 has-data-[state=checked]:bg-sky-500/20 dark:has-data-[state=checked]:bg-sky-500/20">
-                                <Checkbox checked={selected.freeze} className="text-sky-500 border-sky-500" />
-                                <FieldContent>
-                                    <FieldTitle><Snowflake className="w-4 h-4" /> Efek Freeze</FieldTitle>
-                                    <FieldDescription>
-                                        Tidak dapat menjawab selama 4 detik
-                                    </FieldDescription>
-                                </FieldContent>
-                            </FieldLabel>
-                        </FieldGroup>
                     </div>
 
                     {/* AI Generate Panel */}
@@ -533,6 +466,76 @@ const CreateQuiz = () => {
                             </motion.div>
                         )}
                     </AnimatePresence>
+
+                    <div className="space-y-3 glass rounded-xl p-6">
+                        <section className="flex items-center justify-between">
+                            <h1 className="font-semibold font-poppins">Power Ups</h1>
+                            <p>Dipilih: {Object.entries(selected).map(([key, value]) => value ? key : null).filter(Boolean).length}</p>
+                        </section>
+                        <FieldGroup className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    doublePoints: !prev.doublePoints
+                                }))
+                            }
+                                className={"p-4 bg-gold/10 w-full text-gold border-gold rounded-xl flex gap-4 border transition has-data-[state=checked]:border-gold has-data-[state=checked]:bg-gold/20 dark:has-data-[state=checked]:bg-gold/20"}>
+                                <Checkbox checked={selected.doublePoints} className="text-gold border-gold peer" />
+                                <FieldContent>
+                                    <FieldTitle><Star className="w-4 h-4" /> 2x Double Points</FieldTitle>
+                                    <FieldDescription>
+                                        Dapatkan 2x poin untuk jawaban benar
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    fiftyFifty: !prev.fiftyFifty
+                                }))
+                            }
+                                className="bg-primary/10 w-full border text-primary border-primary p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/20 dark:has-data-[state=checked]:bg-primary/20">
+                                <Checkbox checked={selected.fiftyFifty} className="text-primary border-primary" />
+                                <FieldContent>
+                                    <FieldTitle><Shield className="w-4 h-4" /> Fifty Fifty</FieldTitle>
+                                    <FieldDescription>
+                                        Hapus 2 pilihan ganda jawaban salah
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    lightning: !prev.lightning
+                                }))
+                            }
+                                className="bg-red-500/10 w-full border text-red-500 border-red-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-red-500 has-data-[state=checked]:bg-red-500/20 dark:has-data-[state=checked]:bg-red-500/20">
+                                <Checkbox checked={selected.lightning} className="text-red-500 border-red-500" />
+                                <FieldContent>
+                                    <FieldTitle><Zap className="w-4 h-4" /> Efek Lightning</FieldTitle>
+                                    <FieldDescription>
+                                        Menghilangkan pertanyaan selama 4 detik
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    freeze: !prev.freeze
+                                }))
+                            }
+                                className="bg-sky-500/10 w-full border text-sky-500 border-sky-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-sky-500 has-data-[state=checked]:bg-sky-500/20 dark:has-data-[state=checked]:bg-sky-500/20">
+                                <Checkbox checked={selected.freeze} className="text-sky-500 border-sky-500" />
+                                <FieldContent>
+                                    <FieldTitle><Snowflake className="w-4 h-4" /> Efek Freeze</FieldTitle>
+                                    <FieldDescription>
+                                        Tidak dapat menjawab selama 4 detik
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                        </FieldGroup>
+                    </div>
+
                     <div className="glass rounded-2xl p-6 space-y-5">
                         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                             <h2 className="font-poppins font-semibold text-foreground">
