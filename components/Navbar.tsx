@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/hooks/useAuth";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { History, LogIn, LogOut, User, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
@@ -12,15 +12,16 @@ import LoadingScreen from "./LoadingScreen";
 const Navbar = () => {
     const { user, profile, signOut, loading: authLoading } = useAuth();
     const [scrolled, setScrolled] = useState<boolean>(false);
+    const [showModal, setShowModal] = useState<boolean>(false);
     const router = useRouter();
 
-     useEffect(() => {
-       const handleScrolled = () => {
-             setScrolled(window.scrollY > 20)
-       }
-       
-       document.addEventListener("scroll", handleScrolled);
-       return () => document.removeEventListener("scroll", handleScrolled);
+    useEffect(() => {
+        const handleScrolled = () => {
+            setScrolled(window.scrollY > 20)
+        }
+
+        document.addEventListener("scroll", handleScrolled);
+        return () => document.removeEventListener("scroll", handleScrolled);
     }, []);
 
     if (authLoading) return <LoadingScreen />
@@ -44,7 +45,7 @@ const Navbar = () => {
                         <>
                             <Button
                                 variant="primary"
-                                className="flex items-center gap-2"
+                                className="flex items-center gap-2 cursor-pointer"
                                 onClick={() => router.push("/history")}
                             >
                                 <History className="w-4 h-4" />
@@ -57,8 +58,8 @@ const Navbar = () => {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => { signOut(); toastSuccess("Berhasil keluar!"); }}
-                                className="bg-destructive hover:bg-destructive/80"
+                                onClick={() => { setShowModal(true) }}
+                                className="bg-destructive cursor-pointer hover:bg-destructive/80"
                             >
                                 <LogOut className="w-4 h-4" />
                             </Button>
@@ -67,6 +68,7 @@ const Navbar = () => {
                         <Button
                             variant="primary"
                             size="lg"
+                            className="cursor-pointer"
                             onClick={() => router.push("/login")}
                         >
                             <LogIn className="w-4 h-4 mr-2" />
@@ -75,6 +77,46 @@ const Navbar = () => {
                     )}
                 </div>
             </div>
+            <AnimatePresence mode="wait">
+                {showModal &&
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={() => setShowModal(false)}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="glass rounded-3xl p-6 max-w-lg w-full space-y-5 max-h-[85vh]"
+                        >
+                            <h1 className="text-2xl font-bold font-poppins">Hapus</h1>
+                            <p className="text-muted-foreground">Anda yakin ingin keluar dari akun ini?</p>
+                            <div className="flex items-center justify-end gap-1">
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="cursor-pointer"
+                                    onClick={(e) => { e.stopPropagation(); signOut(); toastSuccess("Berhasil keluar!"); setShowModal(false); }}
+                                >
+                                    Keluar
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className="cursor-pointer"
+                                    variant="primary"
+                                    onClick={() => setShowModal(false)}
+                                >
+                                    Batal
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                }
+            </AnimatePresence>
         </header>
     )
 }

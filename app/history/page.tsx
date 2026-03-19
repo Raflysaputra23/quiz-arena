@@ -38,6 +38,7 @@ const History = () => {
     const [quizzes, setQuizzes] = useState<QuizHistory[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
 
     const fetchQuizzes = async () => {
         if (!user) return;
@@ -134,10 +135,10 @@ const History = () => {
 
     const getModeLabel = (mode: string) => {
         switch (mode) {
-            case "speed": return {label: "⚡ Speed", color: "bg-yellow-500/20 text-yellow-500 border-yellow-500/50"};
-            case "survival": return {label: "💀 Survival", color: "bg-purple-500/20 text-purple-500 border-purple-500/50"};
-            case "battle": return {label: "⚔️ Battle", color: "bg-red-500/20 text-red-500 border-red-500/50"};
-            default: return {label: "✨ Normal", color: "bg-primary/20 text-primary border-primary/50"};
+            case "speed": return { label: "⚡ Speed", color: "bg-yellow-500/20 text-yellow-500 border-yellow-500/50" };
+            case "survival": return { label: "💀 Survival", color: "bg-purple-500/20 text-purple-500 border-purple-500/50" };
+            case "battle": return { label: "⚔️ Battle", color: "bg-red-500/20 text-red-500 border-red-500/50" };
+            default: return { label: "✨ Normal", color: "bg-primary/20 text-primary border-primary/50" };
         }
     };
 
@@ -152,7 +153,7 @@ const History = () => {
         }
     };
 
-    if(authLoading) return <LoadingScreen />;
+    if (authLoading) return <LoadingScreen />;
 
     return (
         <div className="min-h-screen quiz-pattern overflow-hidden">
@@ -253,8 +254,8 @@ const History = () => {
                                         <Button
                                             size="sm"
                                             variant="ghost"
-                                            className="bg-destructive/10 border border-destructive text-destructive hover:bg-destructive/10"
-                                            onClick={() => deleteQuiz(quiz.id)}
+                                            className="bg-destructive/10 border cursor-pointer border-destructive text-destructive hover:text-destructive hover:bg-destructive/40"
+                                            onClick={() => setSelectedId(quiz.id)}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </Button>
@@ -353,6 +354,48 @@ const History = () => {
                     </AnimatePresence>
                 )}
             </div>
+
+            {/* INFO DELETE QUIZ */}
+            <AnimatePresence mode="wait">
+                {selectedId &&
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={() => setSelectedId(null)}
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="glass rounded-3xl p-6 max-w-lg w-full space-y-5 max-h-[85vh]"
+                        >
+                            <h1 className="text-2xl font-bold font-poppins">Hapus</h1>
+                            <p className="text-muted-foreground">Anda yakin ingin menghapus history ini?</p>
+                            <div className="flex items-center justify-end gap-1">
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="cursor-pointer"
+                                    onClick={(e) => {e.stopPropagation(); deleteQuiz(selectedId); setSelectedId(null);}}
+                                >
+                                    Hapus
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    className="cursor-pointer"
+                                    variant="primary"
+                                    onClick={() => setSelectedId(null)}
+                                >
+                                    Batal
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                }
+            </AnimatePresence>
         </div>
     );
 };

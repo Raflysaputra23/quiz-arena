@@ -1,19 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useState, useEffect, useCallback, useRef, useMemo, use } from "react";
+import { useState, useEffect, useCallback, useRef, use } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Swords, Heart, Shield, Check, X, Loader2, Trophy, Clock, MessageSquare } from "lucide-react";
+import { Swords, Check, X, Trophy, Clock, MessageSquare } from "lucide-react";
 import { useQuiz } from "@/hooks/useQuiz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { toast } from "sonner";
 import { Sounds } from "@/lib/sounds";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import Image from "next/image";
-import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import { toastError, toastSuccess } from "@/lib/toast";
 import LoadingScreen from "@/components/LoadingScreen";
 
 const BATTLE_DURATION = 500;
