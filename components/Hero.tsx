@@ -147,7 +147,7 @@ const Hero = () => {
                                     onClick={() => router.push("/marketplace")}
                                 >
                                     <Globe2 className="w-5 h-5 mr-2" />
-                                    Marketplace
+                                    Quiz Online
                                 </Button>
                             </motion.div>
                         </div>

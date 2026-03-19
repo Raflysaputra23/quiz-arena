@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Zap, ArrowLeft, Users, Clock, Star, Play, Loader2, Globe, Lock, BookOpen } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,30 +27,47 @@ interface MarketplaceQuiz {
 const Marketplace = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { createAndStartSession } = useQuiz();
+  const { createAndStartSession, joinRoom } = useQuiz();
   const [quizzes, setQuizzes] = useState<MarketplaceQuiz[]>([]);
+  const [selectQuiz, setSelectQuiz] = useState<MarketplaceQuiz | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [name, setName] = useState("");
+  const [joining, setJoining] = useState<boolean>(false);
   const [startingId, setStartingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if(user) fetchQuizzes();
+    fetchQuizzes();
   }, [user]);
 
   const fetchQuizzes = async () => {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { data: quizzesData, error } = await supabase
-        .from("quizzes")
-        .select("id, title, description, room_code, created_at, id_user, is_public")
-        .eq("is_public", true)
-        .eq("is_active", true)
-        .neq("id_user", user?.id ?? '')
-        .order("created_at", { ascending: false })
-        .limit(50);
+      let quizzesData = [];
+      if (user) {
+        const { data, error } = await supabase
+          .from("quizzes")
+          .select("*, quiz_sessions(*)")
+          .eq("is_public", true)
+          .eq("is_active", true)
+          .neq("id_user", user?.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        quizzesData = data;
+      } else {
+        const { data, error } = await supabase
+          .from("quizzes")
+          .select("*, quiz_sessions(*)")
+          .eq("is_public", true)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        quizzesData = data;
+      }
 
-      if (error) throw error;
 
       if (!quizzesData || quizzesData.length === 0) {
         setQuizzes([]);
@@ -81,16 +99,23 @@ const Marketplace = () => {
         nameMap[p.id_user] = p.nama_lengkap;
       });
 
-      setQuizzes(quizzesData.map(q => ({
-        id: q.id,
-        title: q.title,
-        description: q.description,
-        room_code: q.room_code,
-        created_at: q.created_at,
-        id_user: q.id_user,
-        question_count: countMap[q.id] || 0,
-        creator_name: nameMap[q.id_user] || "Unknown",
-      })));
+      const quizFiltered = quizzesData.map((q) => ({ ...q, quiz_sessions: q.quiz_sessions.filter((quest: any) => quest.status === "waiting") }));
+      setQuizzes([]);
+      quizFiltered.forEach(q => {
+        setQuizzes((prev) => [...prev, ...q.quiz_sessions.map((quest: any) => {
+          return {
+            id: q.id,
+            title: q.title,
+            description: q.description,
+            room_code: quest.room_code,
+            created_at: q.created_at,
+            id_user: q.id_user,
+            question_count: countMap[q.id] || 0,
+            creator_name: nameMap[q.id_user] || "Unknown",
+          }
+        })]);
+      });
+
     } catch (err) {
       console.log(err);
       toastError("Gagal memuat quiz!");
@@ -117,15 +142,33 @@ const Marketplace = () => {
     }
   };
 
-  const filtered = quizzes.filter(q =>
-    q.title.toLowerCase().includes(search.toLowerCase()) ||
-    (q.description || "").toLowerCase().includes(search.toLowerCase()) ||
-    q.creator_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    return quizzes.filter(q =>
+      q.title.toLowerCase().includes(search.toLowerCase()) ||
+      (q.description || "").toLowerCase().includes(search.toLowerCase()) ||
+      q.creator_name.toLowerCase().includes(search.toLowerCase())
+    )
+  }, [quizzes, search]);
 
   const formatDate = (d: string) => {
     const date = new Date(d);
     return date.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const handleJoin = async () => {
+    if (!name.trim()) { toastError("Masukkan nama kamu!"); return; }
+    if (!selectQuiz) { toastError("Pilih quiz terlebih dahulu!"); return; }
+    setJoining(true);
+    try {
+      const success = await joinRoom(selectQuiz.room_code?.trim().toUpperCase(), name.trim());
+      if (success) {
+        router.push(`/lobby/${selectQuiz.room_code.trim().toUpperCase()}`);
+      } else {
+        toastError("Kode game tidak ditemukan atau sudah dimulai!");
+      }
+    } finally {
+      setJoining(false);
+    }
   };
 
   if (authLoading) return <LoadingScreen />;
@@ -145,6 +188,65 @@ const Marketplace = () => {
           </div>
         </div>
       </header>
+
+      {/* MODAL JOIN ROOM */}
+      <AnimatePresence mode="wait">
+        {selectQuiz &&
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setSelectQuiz(null)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass rounded-3xl p-6 max-w-lg w-full space-y-5 max-h-[85vh]"
+            >
+              <h1 className="text-2xl font-bold font-poppins text-center uppercase">Join Room</h1>
+              <Input
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                placeholder="Masukkan kode game"
+                defaultValue={selectQuiz.room_code}
+                className="text-center bg-primary/10 text-xl! font-poppins tracking-[0.3em] border-border h-14 uppercase placeholder:text-sm placeholder:tracking-normal"
+                maxLength={6}
+                disabled
+              />
+              <Input
+                placeholder="Nama kamu"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="bg-primary/10 border-border h-12"
+                maxLength={20}
+              />
+              <div className="flex justify-center items-center gap-2">
+                <Button
+                  variant={'primary'}
+                  className="flex-1 group"
+                  onClick={handleJoin}
+                  disabled={joining}
+                >
+                  {joining ? <span className="flex items-center gap-2">Bergabung <Loader2 className="animate-spin" /></span> : "Gabung"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="flex-1 bg-destructive hover:bg-destructive/80 cursor-pointer"
+                  onClick={() => setSelectQuiz(null)}
+                  disabled={joining}
+                >
+                  Batal
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        }
+      </AnimatePresence>
 
       <div className="max-w-6xl mx-auto p-6 space-y-8">
         {/* Hero */}
@@ -239,15 +341,15 @@ const Marketplace = () => {
 
                   <Button
                     className="w-full bg-gradient-primary cursor-pointer text-primary-foreground relative z-10"
-                    onClick={() => handlePlay(quiz)}
-                    disabled={startingId === quiz.id}
+                    onClick={() => setSelectQuiz(quiz)}
+                    disabled={selectQuiz ? true : false}
                   >
-                    {startingId === quiz.id ? (
+                    {selectQuiz ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     ) : (
-                      <Play className="w-4 h-4 mr-2" />
+                      <Play className="w-4 h-4 mr-1" />
                     )}
-                    Main Quiz Ini
+                    Join Sekarang
                   </Button>
                 </motion.div>
               ))}

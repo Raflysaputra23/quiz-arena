@@ -91,6 +91,7 @@ const Navbar = () => {
                             initial={{ scale: 0.9, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.9, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
                             className="glass rounded-3xl p-6 max-w-lg w-full space-y-5 max-h-[85vh]"
                         >
                             <h1 className="text-2xl font-bold font-poppins">Hapus</h1>
@@ -100,7 +101,7 @@ const Navbar = () => {
                                     variant="destructive"
                                     size="sm"
                                     className="cursor-pointer"
-                                    onClick={(e) => { e.stopPropagation(); signOut(); toastSuccess("Berhasil keluar!"); setShowModal(false); }}
+                                    onClick={() => { signOut(); toastSuccess("Berhasil keluar!"); setShowModal(false); }}
                                 >
                                     Keluar
                                 </Button>
