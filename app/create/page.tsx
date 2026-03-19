@@ -356,7 +356,7 @@ const CreateQuiz = () => {
                             </Button>
                             <Button
                                 variant="primaryOutliner"
-                                className="flex-1 border border-primary "
+                                className={`flex-1 border border-primary ${showAiPanel && "bg-primary/50"}`}
                                 onClick={() => setShowAiPanel(!showAiPanel)}
                             >
                                 <Sparkles className="w-4 h-4 mr-2" />
