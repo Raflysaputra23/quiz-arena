@@ -343,6 +343,27 @@ const CreateQuiz = () => {
                             maxLength={500}
                         />
                     </div>
+                    <div className="space-y-3 glass rounded-xl p-6">
+                        <h1 className="font-semibold font-poppins">Visibility & AI Generate</h1>
+                        <div className="flex items-center justify-center gap-2">
+                            <Button
+                                onClick={() => setIsPublic(!isPublic)}
+                                className={`flex-1 flex items-center gap-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${isPublic ? "bg-accent/20 text-accent border-accent hover:bg-accent/40" : "bg-red-500/20 text-red-500 border-red-500 hover:bg-red-500/40"
+                                    }`}
+                            >
+                                {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                                {isPublic ? "Publik" : "Privat"}
+                            </Button>
+                            <Button
+                                variant="primaryOutliner"
+                                className="flex-1 border border-primary "
+                                onClick={() => setShowAiPanel(!showAiPanel)}
+                            >
+                                <Sparkles className="w-4 h-4 mr-2" />
+                                AI Generate
+                            </Button>
+                        </div>
+                    </div>
 
                     {/* AI Generate Panel */}
                     <AnimatePresence>
@@ -433,31 +454,10 @@ const CreateQuiz = () => {
                             </motion.div>
                         )}
                     </AnimatePresence>
-                    <div className="space-y-3 glass rounded-xl p-6">
-                        <h1 className="font-semibold font-poppins">Visibility & AI Generate</h1>
-                        <div className="flex items-center justify-center gap-2">
-                            <Button
-                                onClick={() => setIsPublic(!isPublic)}
-                                className={`flex-1 flex items-center gap-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${isPublic ? "bg-accent/20 text-accent border-accent hover:bg-accent/40" : "bg-red-500/20 text-red-500 border-red-500 hover:bg-red-500/40"
-                                    }`}
-                            >
-                                {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                                {isPublic ? "Publik" : "Privat"}
-                            </Button>
-                            <Button
-                                variant="primaryOutliner"
-                                className="flex-1 border border-primary "
-                                onClick={() => setShowAiPanel(!showAiPanel)}
-                            >
-                                <Sparkles className="w-4 h-4 mr-2" />
-                                AI Generate
-                            </Button>
-                        </div>
-                    </div>
                     <div className="glass rounded-2xl p-6 space-y-5">
                         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                             <h2 className="font-poppins font-semibold text-foreground">
-                                 {editingIdx !== null ? `Edit Soal #${editingIdx + 1}` : "Tambah Soal"}
+                                {editingIdx !== null ? `Edit Soal #${editingIdx + 1}` : "Tambah Soal"}
                             </h2>
                             <div className="flex gap-2">
                                 <Button
