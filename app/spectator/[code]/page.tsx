@@ -10,6 +10,7 @@ import CircularTimer from "@/components/CircularTimer";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import Image from "next/image";
+import LoadingScreen from "@/components/LoadingScreen";
 
 interface SpectatorRoom {
     sessionId: string;
@@ -173,13 +174,7 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
         return [...room.participants].sort((a, b) => b.score - a.score);
     }, [room]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen quiz-pattern flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        );
-    }
+    if (loading) return <LoadingScreen />;
 
     if (error || !room) {
         return (

@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
 import Image from "next/image";
 import { toastError, toastInfo, toastSuccess } from "@/lib/toast";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const BATTLE_DURATION = 500;
 const ATTACK_COOLDOWN = 2500;
@@ -33,8 +34,6 @@ interface BattleParticipant {
   isEliminated: boolean;
   gridX: number;
   gridY: number;
-  posX: number;
-  posY: number;
 }
 
 interface AttackAnimation {
@@ -103,8 +102,6 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
       isEliminated: false,
       gridX: (i % cols) * 1 + Math.random() * 0.3,
       gridY: Math.floor(i / cols) * 1 + Math.random() * 0.3,
-      posX: p.pos_x ?? 0,
-      posY: p.pos_y ?? 0
 
     }));
     (async () => {
@@ -305,7 +302,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
     if (!myParticipant || myParticipant.isEliminated || gameOver) return;
     const me = battleParticipants.find(p => p.id === myParticipant.id)
     const target = battleParticipants.find(p => p.id === targetId)
-    if (!me || !target ) return;
+    if (!me || !target) return;
 
     performAttack(targetId);
     setSelectedTarget(targetId);
@@ -396,25 +393,20 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
+
   const optionColors = [
-    "from-primary to-accent",
-    "from-[hsl(var(--success))] to-[hsl(142,76%,36%)]",
-    "from-accent to-primary",
-    "from-destructive to-[hsl(340,82%,52%)]",
+    { bg: "bg-gradient-primary", border: "border-primary/40" },
+    { bg: "bg-gradient-success", border: "border-[hsl(var(--success))]/40" },
+    { bg: "bg-gradient-accent", border: "border-accent/40" },
+    { bg: "bg-gradient-danger", border: "border-destructive/40" },
   ];
 
-  if (loading || !currentRoom) {
-    return (
-      <div className="min-h-screen quiz-pattern flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (loading || !currentRoom) return <LoadingScreen />;
 
   // Game Over Screen
   if (gameOver && winner) {
     return (
-      <div className="min-h-screen quiz-pattern flex items-center justify-center p-6">
+      <div className="min-h-dvh quiz-pattern flex items-center justify-center p-6 shadow">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -541,10 +533,6 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
                 className={`relative cursor-pointer select-none z-10 ${p.isEliminated ? "opacity-40 grayscale pointer-events-none" : ""}`}
                 whileHover={canAct && !isMe ? { scale: 1.1 } : {}}
                 whileTap={canAct && !isMe ? { scale: 0.9 } : {}}
-                animate={{
-                  x: p.posX,
-                  y: p.posY
-                }}
                 transition={{ type: "spring", stiffness: 220, damping: 20, mass: 0.5 }}
                 onClick={() => !isMe && handleManualAttack(p.id)}
               >
@@ -690,7 +678,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
                   <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
                     Soal {currentQuestionIdx + 1}/{questions.length}
                   </span>
-                  <span className="text-xs px-2 py-1 rounded-full bg-[hsl(var(--gold))]/10 text-[hsl(var(--gold))] font-medium">
+                  <span className="text-xs px-2 py-1 rounded-full bg-[hsl(var(--gold))]/10 text-gold font-medium">
                     {currentQuestion.points} poin
                   </span>
                 </div>
@@ -737,6 +725,19 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
                         {answerResult.correct ? `Benar! +${answerResult.points}` : "Salah!"}
                       </span>
                     </div>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="text-muted-foreground"
+                    >
+                      Jawaban benar:{" "}
+                      <span className="text-foreground font-medium">
+                        {currentQuestion.type === "multiple_choice"
+                          ? currentQuestion.options.find((o) => o.id === currentQuestion.correctAnswer)?.text
+                          : currentQuestion.correctAnswer}
+                      </span>
+                    </motion.p>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -755,7 +756,7 @@ const BattleArena = ({ params }: { params: Promise<{ code: string }> }) => {
                             setSelectedAnswer(opt.id);
                             handleSubmitAnswer(opt.id);
                           }}
-                          className={`flex items-center gap-3 p-4 rounded-xl text-left transition-all bg-gradient-to-r ${optionColors[i % 4]} text-primary-foreground`}
+                          className={`flex items-center gap-3 p-4 rounded-xl text-left transition-all bg-linear-to-r ${optionColors[i % 4].bg} ${optionColors[i % 4].border} text-primary-foreground`}
                         >
                           <span className="w-8 h-8 rounded-lg bg-primary-foreground/20 flex items-center justify-center text-sm font-bold">
                             {opt.label}

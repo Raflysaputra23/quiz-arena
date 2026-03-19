@@ -53,7 +53,6 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
     // Power-ups
     const [powerUps, setPowerUps] = useState<PowerUpState>({ fiftyFifty: false, extraTime: false, doublePoints: false, freeze: false, lightning: false });
-    const [freeze, setFreeze] = useState<boolean>(false);
     const [hiddenOptions, setHiddenOptions] = useState<string[]>([]);
     const [extraTimeAdded, setExtraTimeAdded] = useState(false);
     const [doublePointsActive, setDoublePointsActive] = useState(false);
@@ -133,7 +132,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
             localStorage.removeItem("hostPlaying");
             router.push(`/results/${code}`);
         }
-    }, [currentRoom, router, code, exitFullscreen]);
+    }, [currentRoom, router, code]);
 
     // Reset on new question
     useEffect(() => {
@@ -404,7 +403,6 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const handleFreeze = useCallback(async () => {
         const supabase = supaRef.current;
         setPowerUps((p) => ({ ...p, freeze: true }));
-        setFreeze(true);
         if (!currentParticipant?.id || !currentRoom?.sessionId) return;
 
         await supabase.from('skill_participants')
