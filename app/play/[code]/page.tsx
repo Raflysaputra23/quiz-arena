@@ -115,9 +115,9 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
             if (data && data.length > 0) {
                 data.forEach(e => {
-                    if(e.skill == "freeze") {
+                    if (e.skill == "freeze") {
                         setPowerUps((p) => ({ ...p, freeze: true }));
-                    } else if(e.skill == "lightning"){
+                    } else if (e.skill == "lightning") {
                         setPowerUps((p) => ({ ...p, lightning: true }));
                     }
                 });
@@ -128,12 +128,12 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
 
     useEffect(() => {
         if (currentRoom?.status === "finished") {
+            exitFullscreen();
             bgMusic.stop();
             localStorage.removeItem("hostPlaying");
-            exitFullscreen();
             router.push(`/results/${code}`);
         }
-    }, [currentRoom, router, code]);
+    }, [currentRoom, router, code, exitFullscreen]);
 
     // Reset on new question
     useEffect(() => {
@@ -147,23 +147,16 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                     effectiveTimeLimit = Math.max(5, question.timeLimit - questionIdx * 2);
                 }
                 const remaining = Math.max(0, effectiveTimeLimit - elapsed);
-                const participantAnswered = currentParticipant?.answers[question.id];
-                const isAnswered = participantAnswered ? true : false;
-                const isCorrect = participantAnswered ? participantAnswered.correct : false;
 
                 setTimeLeft(remaining);
                 setSelectedAnswer(null);
                 setShortAnswer("");
-                setAnswered(isAnswered);
-                setShowResult(isAnswered);
-                setIsCorrect(isCorrect);
                 setEarnedPoints(0);
                 setTimeExpired(false);
                 setHiddenOptions([]);
                 setExtraTimeAdded(false);
                 setDoublePointsActive(false);
                 timeExpiredRef.current = false;
-                submitLockRef.current = isAnswered;
                 lastTickRef.current = 0;
                 if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current);
                 hasAutoAdvanced.current = true;
@@ -172,7 +165,22 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 return () => clearTimeout(resetTimer);
             }
         })()
-    }, [questionIdx, question?.id, currentRoom?.questionStartTime, currentParticipant?.answers]);
+    }, [questionIdx, question?.id, currentRoom?.questionStartTime]);
+
+    useEffect(() => {
+        (async() => {
+            if (question) {
+                const participantAnswered = currentParticipant?.answers[question.id];
+                const isAnswered = participantAnswered ? true : false;
+                const isCorrect = participantAnswered ? participantAnswered.correct : false;
+    
+                setAnswered(isAnswered);
+                setShowResult(isAnswered);
+                setIsCorrect(isCorrect);
+                submitLockRef.current = isAnswered;
+            }
+        })();
+    }, [currentParticipant?.answers, question, questionIdx]);
 
     // useEffect(() => {
     //     const checkAllAnswered = async () => {

@@ -27,7 +27,6 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
 
     useEffect(() => {
         setHostPlaying(false);
-        // enterFullscreen();
         if (loading) return;
         const joined = sessionStorage.getItem("joinedRoom");
 
@@ -57,7 +56,8 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
 
     useEffect(() => {
         if (currentRoom?.status === "playing" && code) {
-            if(currentRoom.mode === "battle") {
+            enterFullscreen();
+            if (currentRoom.mode === "battle") {
                 router.push(`/battle/${code}`);
             } else {
                 router.push(`/play/${code}`);
