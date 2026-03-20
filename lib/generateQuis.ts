@@ -1,14 +1,36 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { GoogleGenAI } from "@google/genai";
 
 const RafAI = new GoogleGenAI({
   apiKey: process.env.NEXT_PUBLIC_GEMINI_APIKEY,
 });
 
-export const generateQuis = async (prompt: string) => {
+export const generateQuis = async (prompt: string, files: File[]) => {
   try {
+    let contents: any = "";
+    if (files.length > 0) {
+      const fileBuffer = [];
+      for (const file of files) {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        fileBuffer.push({
+          mimeType: file.type,
+          buffer: buffer.toString("base64"),
+        });
+      }
+      contents = fileBuffer.map((file) => ({
+        inlineData: {
+          mimeType: file.mimeType,
+          data: file.buffer,
+        },
+      }));
+      contents.push({text: prompt});
+    } else {
+      contents = prompt;
+    }
+
     const response = await RafAI.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: prompt,
+      contents,
       config: {
         systemInstruction: `
 Anda adalah asissten yang dibuat untuk generate soal Quiz, 
@@ -34,7 +56,7 @@ jawaban anda harus berupa string json saja contoh struktur jsonnya seperti ini:
     },
   ]
 }
-anda harus menjawab persis seperti itu untuk struktur jsonnya, nanti pengguna akan meminta membuat soal dan mengirimkan topik, jumlah soal, dan levelnya,
+anda harus menjawab persis seperti itu untuk struktur jsonnya, jika pengguna juga mengirim sebuah file pdf atau gambar, anda harus membuat soal dengan referensi file yang diberikan ya, dan nanti pengguna akan meminta membuat soal dan mengirimkan topik, jumlah soal, dan levelnya,
 anda harus menjawab sesuai dengan perintah pengguna ya dan anda harus menjawab struktur jsonnya seperti di responSchema.`,
         maxOutputTokens: 4080,
         temperature: 0.7,
@@ -67,12 +89,12 @@ anda harus menjawab sesuai dengan perintah pengguna ya dan anda harus menjawab s
               },
             },
           },
-        }
+        },
       },
     });
-    return response.text; 
+    return response.text;
   } catch (error) {
     console.log("Generate Quiz Gagal:", error);
     throw new Error("Generate Quiz Gagal!");
   }
-}
+};

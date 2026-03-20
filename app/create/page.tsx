@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Sparkles, Globe, Lock, Minus, Snowflake, Shield, Star } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,7 +15,7 @@ import { toastError, toastSuccess } from "@/lib/toast";
 import Image from "next/image";
 import { FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface LocalOption {
     id: string;
@@ -61,6 +61,9 @@ const CreateQuiz = () => {
     const [qPoints, setQPoints] = useState(1000);
     const [qImageUrl, setQImageUrl] = useState<string>("");
     const [uploading, setUploading] = useState(false);
+    const [fileUrl, setFileUrl] = useState<{ size: number, url: string, name: string, type: string }[]>([]);
+    const [file, setFile] = useState<File[]>([]);
+    const [isDrag, setIsDrag] = useState<boolean>(false);
     const [selected, setSelected] = useState({
         doublePoints: true,
         fiftyFifty: true,
@@ -68,10 +71,44 @@ const CreateQuiz = () => {
         freeze: true
     });
     const supaRef = useRef(createClient());
+    const fileRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!user) { router.push("/login"); }
     }, [user, router]);
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setIsDrag(false);
+        const file = e.target.files?.[0];
+        if (!file) { toastError("File tidak ditemukan!"); return; }
+        if (file.size > (5 * 1024 * 1024)) { toastError("Ukuran file maksimal 5MB!"); return; }
+        const type = file.type.startsWith('application/pdf') ? 'PDF' : file.type.startsWith('image/') ? 'IMG' : 'DOC';
+        const url = URL.createObjectURL(file);
+        setFile((prev) => [...prev, file]);
+        setFileUrl((prev) => [...prev, { size: file.size, url, name: file.name, type }]);
+    }
+
+    const handleFileDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+        e.preventDefault();
+        setIsDrag(false);
+        const file = e.dataTransfer.files?.[0];
+        if (!file) { toastError("File tidak ditemukan"); return; }
+        if (file.size > (5 * 1024 * 1024)) { toastError("Ukuran file maksimal 5MB!"); return; }
+        const type = file.type.startsWith('application/pdf') ? 'PDF' : file.type.startsWith('image/') ? 'IMG' : 'DOC';
+        const url = URL.createObjectURL(file);
+        setFile((prev) => [...prev, file]);
+        setFileUrl((prev) => [...prev, { size: file.size, url, name: file.name, type }]);
+    }
+
+    const convertSize = (bytes: number) => {
+        if (bytes < 1024) {
+            return bytes + ' bytes';
+        } else if (bytes < 1048576) {
+            return (bytes / 1024).toFixed(1) + ' KB';
+        } else {
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+    }
 
     const extractJSON = (text: string) => {
         return text.replace(/```json/g, "").replace(/```/g, "").trim();
@@ -101,14 +138,23 @@ const CreateQuiz = () => {
 
     const handleAiGenerate = async () => {
         if (!aiTopic.trim()) { toastError("Masukkan topik quiz!"); return; }
+        if (aiNumQuestions <= 0) { toastError("Jumlah soal minimal 1!"); return; }
         setAiGenerating(true);
+
         try {
+
+            // FORMDATA
+            const formData = new FormData();
+            formData.append('topik', aiTopic.trim());
+            formData.append('jumlah', aiNumQuestions.toString());
+            formData.append('level', aiDifficulty);
+            file.forEach((f:File) => {
+                formData.append('files', f);
+            })
+
             const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/generate`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ topik: aiTopic.trim(), jumlah: aiNumQuestions, level: aiDifficulty }),
+                body: formData
             });
 
             if (res.status !== 200) { toastError("RafAI tidak merespon!"); return; }
@@ -146,6 +192,21 @@ const CreateQuiz = () => {
         }
     };
 
+    const handleDeleteImage = async (imageUrl: string) => {
+        setUploading(true)
+        const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/upload?url=${encodeURIComponent(imageUrl)}`, {
+            method: 'DELETE'
+        });
+
+        if (res.status !== 200) { 
+            toastError("Gagal menghapus gambar!"); 
+            return; 
+        }
+        toastSuccess("Gambar berhasil dihapus!");
+        setQImageUrl("");
+        setUploading(false);
+    }
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) { toastError("File tidak ditemukan!"); return; }
@@ -153,17 +214,27 @@ const CreateQuiz = () => {
         if (file.size > 5 * 1024 * 1024) { toastError("Ukuran file maksimal 5MB!"); return; }
 
         setUploading(true);
-        const ext = file.name.split(".").pop();
-        const path = `${crypto.randomUUID()}.${ext}`;
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/upload`, { 
+                method: "POST", 
+                body: formData 
+            });
 
-        const supabase = supaRef.current;
-        const { error } = await supabase.storage.from("question-images").upload(path, file);
-        if (error) { toastError("Gagal mengupload gambar!"); setUploading(false); return; }
-
-        const { data: { publicUrl } } = supabase.storage.from("question-images").getPublicUrl(path);
-        setQImageUrl(publicUrl);
-        setUploading(false);
-        toastSuccess("Gambar berhasil diupload!");
+            if (res.status !== 200) { 
+                toastError("Gagal mengupload gambar!"); 
+                return; 
+            }
+            const data = await res.json();
+            const publicUrl = data.url;
+            setQImageUrl(publicUrl);
+            toastSuccess("Gambar berhasil diupload!");
+        } catch {
+            toastError("Gagal mengupload gambar!"); 
+        } finally {
+            setUploading(false);
+        }
     };
 
     const addQuestion = () => {
@@ -296,7 +367,7 @@ const CreateQuiz = () => {
 
             toastSuccess("Quiz berhasil dibuat!");
             router.push(`/lobby/${roomCode}`);
-        } catch (err) {
+        } catch {
             toastError("Terjadi kesalahan!");
         } finally {
             setPublishing(false);
@@ -391,6 +462,37 @@ const CreateQuiz = () => {
                                         <Sparkles className="w-5 h-5 text-accent" />
                                         <h3 className="font-poppins font-bold text-foreground">AI Quiz Generator</h3>
                                     </div>
+                                    <p className="text-sm text-muted-foreground">Referensi soal (optional)</p>
+                                    <label
+                                        onDragEnter={() => setIsDrag(true)}
+                                        onDragOver={(e) => { e.preventDefault(); setIsDrag(true); }}
+                                        onDragLeave={() => setIsDrag(false)}
+                                        onDrop={handleFileDrop}
+                                        className={`flex flex-col items-center justify-center w-full h-38 overflow-y-auto overflow-x-hidden border-2 border-primary/50 border-dashed rounded-lg cursor-pointer ${isDrag ? 'bg-primary/30' : 'bg-primary/10'}  hover:bg-primary/30 transition font-poppins`}>
+                                        <div className="flex items-center justify-center pt-5 pb-6 flex-wrap gap-2">
+                                            {fileUrl.length > 0 ?
+                                                fileUrl.map(({ size, url, type }: { size: number, url: string, name: string, type: string }) => (
+                                                    <div className={`w-22 h-24 relative flex flex-col shadow items-center justify-center gap-1 rounded-xl ${type == 'PDF' ? 'bg-destructive/10 border-destructive/30' : type == 'IMG' ? 'bg-sky-500/10 border-sky-500/30' : 'bg-primary/10 border-primary/30'} border`} key={url}>
+                                                        <X className="w-5 h-5 absolute -top-1 -right-1 text-destructive cursor-pointer" onClick={(e) => {e.stopPropagation(); setFileUrl((prev) => prev.filter(p => p.url != url))}} />
+                                                        <Link href={url} target="_blank" className={`${type == 'PDF' ? 'text-destructive' : type == 'IMG' ? 'text-sky-500' : 'text-primary'} text-md font-semibold underline`}>{type}</Link>
+                                                        <p className="text-muted-foreground text-xs">{convertSize(size)}</p>
+                                                    </div>
+                                                ))
+                                                :
+                                                <div className="flex-1 flex flex-col items-center justify-center">
+                                                    <svg className="w-8 h-8 mb-4 text-muted-foreground" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2" />
+                                                    </svg>
+                                                    <p className="mb-2 text-sm text-muted-foreground dark:text-gray-400"><span className="font-semibold text-foreground">Click to upload</span> or <span className="font-semibold text-foreground">drag and drop</span></p>
+                                                    <p className="text-xs text-muted-foreground ">(PDF, IMG, DOCS) - (MAX. 5MB)</p>
+                                                </div>
+                                            }
+                                        </div>
+                                        <input
+                                            ref={fileRef}
+                                            onChange={handleFileUpload}
+                                            type="file" className="hidden" multiple hidden required />
+                                    </label>
                                     <p className="text-sm text-muted-foreground">
                                         Masukkan topik dan AI akan otomatis generate soal-soal quiz untukmu!
                                     </p>
@@ -575,13 +677,17 @@ const CreateQuiz = () => {
                             <label className="text-sm text-muted-foreground block">Gambar Soal (opsional)</label>
                             {qImageUrl ? (
                                 <div className="relative inline-block">
-                                    <Image width={80} height={80} src={qImageUrl} alt="Preview" className="max-h-40 rounded-xl border border-border" />
-                                    <button
-                                        onClick={() => setQImageUrl("")}
-                                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:scale-110 transition-transform"
+                                    <Image width={100} height={100} src={qImageUrl} alt="Preview" className="max-h-40 aspect-auto rounded-xl border border-primary/30" />
+                                    <Button 
+                                        type="button"
+                                        variant={'ghost'}
+                                        size={'icon'}
+                                        onClick={() => handleDeleteImage(qImageUrl)}
+                                        disabled={uploading}
+                                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center hover:scale-110 transition-transform"
                                     >
-                                        <X className="w-3 h-3" />
-                                    </button>
+                                        {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                    </Button>
                                 </div>
                             ) : (
                                 <label className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border cursor-pointer hover:bg-secondary/50 transition-colors">
