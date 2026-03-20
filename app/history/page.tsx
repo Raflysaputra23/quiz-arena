@@ -226,13 +226,13 @@ const History = () => {
                                 className="glass rounded-xl overflow-hidden"
                             >
                                 {/* Quiz header */}
-                                <div className="p-5 flex items-start lg:items-center lg:justify-between lg:flex-row flex-col gap-4">
+                                <div className="p-5 flex items-start lg:items-center lg:justify-between lg:flex-row overflow-hidden flex-col gap-4">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shrink-0">
                                             <Zap className="w-6 h-6 text-primary-foreground" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h3 className="font-poppins font-bold text-foreground truncate">{quiz.title}</h3>
+                                            <h3 className="font-poppins font-bold text-foreground leading-5">{quiz.title}</h3>
                                             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="w-3 h-3" />
