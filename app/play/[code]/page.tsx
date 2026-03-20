@@ -259,8 +259,9 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 const timeTaken = (Date.now() - currentRoom.questionStartTime) / 1000;
                 const timeBonus = Math.max(0, Math.round((1 - timeTaken / question.timeLimit) * question.points * 0.5));
                 let pts = question.points + timeBonus;
+                const scoreStreak = 100 * (currentParticipant?.streak ?? 0);
                 if (doublePointsActive) pts *= 2;
-                setEarnedPoints(pts);
+                setEarnedPoints(pts + scoreStreak);
             }
         }
 
@@ -829,7 +830,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                     >
                                         <span className="w-5 text-center text-xs font-bold text-muted-foreground">{i + 1}</span>
                                         <span className="text-lg">{p.avatar}</span>
-                                        <span className="flex-1 text-sm font-medium text-foreground truncate">{p.name}</span>
+                                        <span className="flex-1 text-sm font-medium text-foreground truncate">{currentParticipant?.id === p.id ? <span className="text-primary">Anda</span> : p.name}</span>
                                         <span className="text-xs font-poppins font-bold text-primary">{p.score}</span>
                                     </motion.div>
                                 ))}

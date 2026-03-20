@@ -2,7 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Play, Users, Zap, Loader2, Gamepad2, Eye, Gauge, Skull, Sparkles } from "lucide-react";
+import { Copy, Play, Users, Zap, Loader2, Gamepad2, Eye, Gauge, Skull, Sparkles, ArrowLeft } from "lucide-react";
 import { useQuiz } from "@/hooks/useQuiz";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/lib/toast";
@@ -87,6 +87,9 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
 
     return (
         <div className="min-h-screen quiz-pattern overflow-hidden flex flex-col items-center justify-center p-6">
+            <Button variant={'ghost'} size={'icon'} onClick={() => router.push("/")} className="fixed top-6 left-6 z-20 cursor-pointer">
+                <ArrowLeft className="w-8! h-8!" />
+            </Button>
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

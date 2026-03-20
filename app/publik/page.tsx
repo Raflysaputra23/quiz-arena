@@ -177,14 +177,14 @@ const Marketplace = () => {
     <div className="min-h-screen quiz-pattern">
       <header className="sticky top-0 z-50 glass border-b border-border/50">
         <div className="max-w-6xl mx-auto flex items-center gap-4 px-6 py-4">
-          <Button variant="ghost" className="cursor-pointer" size="icon" onClick={() => router.push("/")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
           <div className="flex items-center gap-2">
+            <Button variant={'ghost'} size={'icon'} onClick={() => router.push("/")} className="cursor-pointer">
+              <ArrowLeft className="w-6! h-6!" />
+            </Button>
             <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Globe className="w-4 h-4 text-primary-foreground" />
             </div>
-            <span className="font-poppins font-bold text-foreground">Quiz Marketplace</span>
+            <span className="font-poppins font-bold text-foreground">Quiz Publik</span>
           </div>
         </div>
       </header>

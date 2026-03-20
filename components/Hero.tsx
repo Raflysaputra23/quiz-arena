@@ -58,8 +58,8 @@ const Hero = () => {
     const stats = [
         { value: "∞", label: "Quiz Bisa Dibuat" },
         { value: "Real Time", label: "Multiplayer" },
-        { value: "3", label: "Mode Permainan" },
-        { value: "3", label: "Power-Ups" },
+        { value: "4", label: "Mode Permainan" },
+        { value: "4", label: "Power-Ups" },
     ];
 
     return (
@@ -119,12 +119,12 @@ const Hero = () => {
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
                             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                                 <Button
-                                    variant={'primary'}
-                                    size={'lg'}
-                                    className="cursor-pointer shadow-glow px-10 py-7 rounded-2xl"
+                                    variant="primary"
+                                    size="lg"
+                                    className="cursor-pointer text-md shadow-glow px-10 py-7 rounded-2xl"
                                     onClick={() => setShowJoin(true)}
                                 >
-                                    <Users className="w-5 h-5 mr-2" />
+                                    <Users className="w-5 h-5 mr-1" />
                                     Gabung Game
                                 </Button>
                             </motion.div>
@@ -135,7 +135,7 @@ const Hero = () => {
                                     className="border cursor-pointer border-primary hover:text-primary bg-primary/10 text-primary hover:bg-primary/30 text-md px-10 py-7 rounded-2xl"
                                     onClick={handleCreate}
                                 >
-                                    <Plus className="w-5 h-5 mr-2" />
+                                    <Plus className="w-5 h-5 mr-1" />
                                     Buat Quiz Baru
                                 </Button>
                             </motion.div>
@@ -144,10 +144,10 @@ const Hero = () => {
                                     size="lg"
                                     variant="primary"
                                     className="border cursor-pointer text-md px-10 py-7 rounded-2xl"
-                                    onClick={() => router.push("/marketplace")}
+                                    onClick={() => router.push("/publik")}
                                 >
-                                    <Globe2 className="w-5 h-5 mr-2" />
-                                    Quiz Online
+                                    <Globe2 className="w-5 h-5 mr-1" />
+                                    Quiz Publik
                                 </Button>
                             </motion.div>
                         </div>

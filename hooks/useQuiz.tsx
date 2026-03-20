@@ -175,7 +175,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         if (isProcessingRef.current) return;
         if (skillQueueRef.current.length === 0) return;
         if (skillQueueRef.current.length > 50) skillQueueRef.current.shift();
-        
+
         isProcessingRef.current = true;
 
         const nextSkill = skillQueueRef.current.shift();
@@ -633,11 +633,12 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             console.error("Increment score error:", error);
         }
 
-        const newStreak = correct ? (currentParticipant.streak || 0) + 1 : 0;
+        const scoreStreak = 100 * (currentParticipant.streak || 0);
+        const newStreak = correct ? Math.min(5, (currentParticipant.streak || 0) + 1) : 0;
 
         setCurrentParticipant((prev) => prev ? {
             ...prev,
-            score: prev.score + points,
+            score: prev.score + points + scoreStreak,
             streak: newStreak,
             answers: { ...prev.answers, [question.id]: { answer, time: timeTaken, correct, points } },
         } : prev);
