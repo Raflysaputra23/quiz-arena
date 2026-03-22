@@ -657,20 +657,21 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: 0.2 }}
-                                            className="flex gap-3 max-w-md mx-auto"
+                                            className="flex flex-wrap items-center gap-3 max-w-lg mx-auto"
                                         >
                                             <Input
                                                 placeholder="Ketik jawabanmu..."
                                                 value={shortAnswer}
                                                 onChange={(e) => setShortAnswer(e.target.value)}
-                                                className="bg-primary/10 h-14 text-lg"
+                                                className="bg-primary/10 shrink w-full lg:w-auto flex-1 h-14 rounded-md text-lg"
                                                 onKeyDown={(e) => e.key === "Enter" && !answered && handleSubmit(shortAnswer)}
                                                 disabled={answered}
                                                 maxLength={200}
                                             />
                                             <Button
+                                                onSubmit={() => handleSubmit(shortAnswer)}
                                                 variant={"primary"}
-                                                className="h-14 px-6"
+                                                className="h-14 px-6 w-full lg:w-auto shrink"
                                                 onClick={() => handleSubmit(shortAnswer)}
                                                 disabled={answered}
                                             >
