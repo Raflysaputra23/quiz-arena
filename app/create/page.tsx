@@ -91,8 +91,9 @@ const CreateQuiz = () => {
                 .split("\n")
                 .slice(1)
                 .length;
-            setAiNumQuestions(total);
+            setAiNumQuestions(Math.min(20, total));
         }
+        setAiTopic(`Buatkan soalnya dari referensi file ${type} ini`);
         setFile((prev) => [...prev, file]);
         setFileUrl((prev) => [...prev, { size: file.size, url, name: file.name, type }]);
     }
