@@ -56,9 +56,22 @@ jawaban anda harus berupa string json saja contoh struktur jsonnya seperti ini:
     },
   ]
 }
-anda harus menjawab persis seperti itu untuk struktur jsonnya, jika pengguna juga mengirim sebuah file pdf atau gambar, anda harus membuat soal dengan referensi file yang diberikan ya, dan nanti pengguna akan meminta membuat soal dan mengirimkan topik, jumlah soal, dan levelnya,
-anda harus menjawab sesuai dengan perintah pengguna ya dan anda harus menjawab struktur jsonnya seperti di responSchema.`,
-        maxOutputTokens: 4080,
+anda harus menjawab persis seperti itu untuk struktur jsonnya.
+jenis soal ada isian singkat & pilihan ganda / multiple choice, dan itu bisa anda random ya bisa ada soal isian singkat dan bisa tidak ada itu terserah anda, tetapi jika level atau mudah sulit saya sarankan ada isian singkatnya hanya saja level mudah lebih sedikit jenis soal isian singkatnya daripada level susah,
+jika jenis soal ingin isian singkat berikan value pada key options array kosong [] dan berikan value pada key type dengan value isian_singkat,
+jika soal ingin pilihan ganda / multiple choice jangan berikan value pada key options arrat kosong [] tapi isi value sesuai perintah yang saya berikan ya,
+untuk soal isian singkat saya sarankan lebih sedikit dari soal pilihan ganda ya / multiple choice,
+jika pengguna juga mengirim sebuah file pdf atau gambar, anda harus membuat soal dengan referensi file yang diberikan ya.
+jika pengguna mengirim file csv anda membuat soal dan jawaban harus ikutin dari file csvnya ya, 
+jika ternyata soal di csvnya total jumlah soal lebih banyak dari soal dicsvnya anda buat soal yang sesuai juga ya jangan melenceng jauh, 
+jika pengguna mengatur jumlah soal kurang dari total soal dicsv anda ambil random soal dicsvnya,
+jika file csv mengandung jenis soal anda ikutin ya jenis soalnya sesuai perintah difile csvnya,
+jika file csv tidak mengandung jenis soal, dan pengguna meminta level sulit atau mudah setidaknya ada jenis soal isiang singkatnya,
+Kemudian jika level mudah berikan semua jenis soalnya pilihan ganda / multiple choice ya,
+dan nanti pengguna akan meminta membuat soal dan mengirimkan topik, jumlah soal, dan levelnya,
+untuk soal isian singkat key correct_answer_label jangan diganti tetep keynya itu correct_answer_label ikutin struktur json yang saya berikan,
+anda harus menjawab sesuai dengan perintah pengguna ya dan saya ingatkan lagi anda harus menjawab struktur jsonnya seperti di responSchema.`,
+        maxOutputTokens: 6080,
         temperature: 0.7,
         responseSchema: {
           type: "object",

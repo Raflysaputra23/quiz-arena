@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Sparkles, Globe, Lock, Minus, Snowflake, Shield, Star } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Check, Zap, ListChecks, Type, Loader2, ImagePlus, X, Sparkles, Globe, Lock, Minus, Snowflake, Shield, Star, Upload, Text, File } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ const CreateQuiz = () => {
     const [aiDifficulty, setAiDifficulty] = useState("easy");
     const [aiGenerating, setAiGenerating] = useState(false);
     const [showAiPanel, setShowAiPanel] = useState(false);
+    const [showManualPanel, setShowManualPanel] = useState(true);
     const [qType, setQType] = useState<QuestionType>("multiple_choice");
     const [qText, setQText] = useState("");
     const [qOptions, setQOptions] = useState<LocalOption[]>([
@@ -77,27 +78,38 @@ const CreateQuiz = () => {
         if (!user) { router.push("/login"); }
     }, [user, router]);
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setIsDrag(false);
-        const file = e.target.files?.[0];
-        if (!file) { toastError("File tidak ditemukan!"); return; }
-        if (file.size > (5 * 1024 * 1024)) { toastError("Ukuran file maksimal 5MB!"); return; }
-        const type = file.type.startsWith('application/pdf') ? 'PDF' : file.type.startsWith('image/') ? 'IMG' : 'DOC';
+    const manageFile = async (file: File) => {
+         if (file.size > (5 * 1024 * 1024)) { toastError("Ukuran file maksimal 5MB!"); return; }
+        const allowedType = ['application/pdf', 'image/jpeg', 'image/png', 'text/csv'];
+        if (!allowedType.includes(file.type)) { toastError("Tipe file tidak diizinkan!"); return; }
+        const type = file.type.startsWith('application/pdf') ? 'PDF' : file.type.startsWith('image/') ? 'IMG' : 'CSV';
         const url = URL.createObjectURL(file);
+        if (type == 'CSV') {
+            const fileText = await file.text();
+            const total = fileText
+                .trim()
+                .split("\n")
+                .slice(1)
+                .length;
+            setAiNumQuestions(total);
+        }
         setFile((prev) => [...prev, file]);
         setFileUrl((prev) => [...prev, { size: file.size, url, name: file.name, type }]);
     }
 
-    const handleFileDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        setIsDrag(false);
+        const file = e.target.files?.[0];
+        if (!file) { toastError("File tidak ditemukan!"); return; }
+        await manageFile(file);
+    }
+
+    const handleFileDrop = async (e: React.DragEvent<HTMLLabelElement>) => {
         e.preventDefault();
         setIsDrag(false);
         const file = e.dataTransfer.files?.[0];
         if (!file) { toastError("File tidak ditemukan"); return; }
-        if (file.size > (5 * 1024 * 1024)) { toastError("Ukuran file maksimal 5MB!"); return; }
-        const type = file.type.startsWith('application/pdf') ? 'PDF' : file.type.startsWith('image/') ? 'IMG' : 'DOC';
-        const url = URL.createObjectURL(file);
-        setFile((prev) => [...prev, file]);
-        setFileUrl((prev) => [...prev, { size: file.size, url, name: file.name, type }]);
+        await manageFile(file);
     }
 
     const convertSize = (bytes: number) => {
@@ -136,6 +148,14 @@ const CreateQuiz = () => {
         setAiDifficulty("easy");
     }
 
+    const handlePanel = (panel: string) => {
+        setShowAiPanel(false);
+        setShowManualPanel(false);
+
+        if (panel === "ai") setShowAiPanel(true);
+        else if (panel === "manual") setShowManualPanel(true);
+    }
+
     const handleAiGenerate = async () => {
         if (!aiTopic.trim()) { toastError("Masukkan topik quiz!"); return; }
         if (aiNumQuestions <= 0) { toastError("Jumlah soal minimal 1!"); return; }
@@ -148,7 +168,7 @@ const CreateQuiz = () => {
             formData.append('topik', aiTopic.trim());
             formData.append('jumlah', aiNumQuestions.toString());
             formData.append('level', aiDifficulty);
-            file.forEach((f:File) => {
+            file.forEach((f: File) => {
                 formData.append('files', f);
             })
 
@@ -164,8 +184,8 @@ const CreateQuiz = () => {
             if (!description.trim() && data.description) setDescription(data.description);
 
             const newQuestions: LocalQuestion[] = (data.questions || []).map((q: any) => {
-                const options: LocalOption[] = (q.options || []).map((op: any) => ({
-                    id: op.label.toLowerCase(),
+                const options: LocalOption[] = (q.options || []).map((op: any, i: number) => ({
+                    id: i === 0 ? "a" : i === 1 ? "b" : i === 2 ? "c" : "d",
                     text: op.text,
                     label: op.label,
                 }));
@@ -183,10 +203,11 @@ const CreateQuiz = () => {
             setQuestions(prev => [...prev, ...newQuestions]);
             toastSuccess(`${newQuestions.length} Soal berhasil di-generate!`);
             setShowAiPanel(false);
+            setShowManualPanel(true);
             resetFormAI();
         } catch (err) {
             console.log(err);
-            toastError("Gagal generate quiz!");
+            toastError("Gagal generate quiz, silahkan coba lagi!");
         } finally {
             setAiGenerating(false);
         }
@@ -198,9 +219,9 @@ const CreateQuiz = () => {
             method: 'DELETE'
         });
 
-        if (res.status !== 200) { 
-            toastError("Gagal menghapus gambar!"); 
-            return; 
+        if (res.status !== 200) {
+            toastError("Gagal menghapus gambar!");
+            return;
         }
         toastSuccess("Gambar berhasil dihapus!");
         setQImageUrl("");
@@ -217,21 +238,21 @@ const CreateQuiz = () => {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/upload`, { 
-                method: "POST", 
-                body: formData 
+            const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/upload`, {
+                method: "POST",
+                body: formData
             });
 
-            if (res.status !== 200) { 
-                toastError("Gagal mengupload gambar!"); 
-                return; 
+            if (res.status !== 200) {
+                toastError("Gagal mengupload gambar!");
+                return;
             }
             const data = await res.json();
             const publicUrl = data.url;
             setQImageUrl(publicUrl);
             toastSuccess("Gambar berhasil diupload!");
         } catch {
-            toastError("Gagal mengupload gambar!"); 
+            toastError("Gagal mengupload gambar!");
         } finally {
             setUploading(false);
         }
@@ -395,12 +416,20 @@ const CreateQuiz = () => {
                 </div>
                 <div className="ml-auto flex items-center gap-3">
                     <Button
+                        onClick={() => setIsPublic(!isPublic)}
+                        className={`flex-1 flex items-center gap-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${isPublic ? "bg-accent/20 text-accent border-accent hover:bg-accent/40" : "bg-red-500/20 text-red-500 border-red-500 hover:bg-red-500/40"
+                            }`}
+                    >
+                        {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                        <span className="hidden lg:inline-block">{isPublic ? "Publik" : "Privat"}</span>
+                    </Button>
+                    <Button
                         variant={'primary'}
                         onClick={handlePublish}
                         disabled={publishing}
                     >
-                        Publish
-                        {publishing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        {publishing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-3.5 h-3.5" />}
+                        <span className="hidden lg:inline-block">Publish</span>
                     </Button>
                 </div>
             </header>
@@ -426,30 +455,259 @@ const CreateQuiz = () => {
                         />
                     </div>
 
+
                     <div className="space-y-3 glass rounded-xl p-6">
-                        <h1 className="font-semibold font-poppins">Visibility & AI Generate</h1>
-                        <div className="flex items-center justify-center gap-2">
-                            <Button
-                                onClick={() => setIsPublic(!isPublic)}
-                                className={`flex-1 flex items-center gap-2 rounded-lg text-sm font-medium transition-all cursor-pointer border ${isPublic ? "bg-accent/20 text-accent border-accent hover:bg-accent/40" : "bg-red-500/20 text-red-500 border-red-500 hover:bg-red-500/40"
-                                    }`}
-                            >
-                                {isPublic ? <Globe className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                                {isPublic ? "Publik" : "Privat"}
-                            </Button>
-                            <Button
-                                variant="primaryOutliner"
-                                className={`flex-1 border border-primary ${showAiPanel && "bg-primary/50"}`}
-                                onClick={() => setShowAiPanel(!showAiPanel)}
-                            >
-                                <Sparkles className="w-4 h-4 mr-2" />
-                                AI Generate
-                            </Button>
-                        </div>
+                        <section className="flex items-center justify-between">
+                            <h1 className="font-semibold font-poppins">Power Ups</h1>
+                            <p>Dipilih: {Object.entries(selected).map(([key, value]) => value ? key : null).filter(Boolean).length}</p>
+                        </section>
+                        <FieldGroup className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    doublePoints: !prev.doublePoints
+                                }))
+                            }
+                                className={"p-4 bg-gold/10 w-full text-gold border-gold rounded-xl flex gap-4 border transition has-data-[state=checked]:border-gold has-data-[state=checked]:bg-gold/20 dark:has-data-[state=checked]:bg-gold/20"}>
+                                <Checkbox checked={selected.doublePoints} className="text-gold border-gold peer" />
+                                <FieldContent>
+                                    <FieldTitle><Star className="w-4 h-4" /> 2x Double Points</FieldTitle>
+                                    <FieldDescription>
+                                        Dapatkan 2x poin untuk jawaban benar
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    fiftyFifty: !prev.fiftyFifty
+                                }))
+                            }
+                                className="bg-primary/10 w-full border text-primary border-primary p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/20 dark:has-data-[state=checked]:bg-primary/20">
+                                <Checkbox checked={selected.fiftyFifty} className="text-primary border-primary" />
+                                <FieldContent>
+                                    <FieldTitle><Shield className="w-4 h-4" /> Fifty Fifty</FieldTitle>
+                                    <FieldDescription>
+                                        Hapus 2 pilihan ganda jawaban salah
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    lightning: !prev.lightning
+                                }))
+                            }
+                                className="bg-red-500/10 w-full border text-red-500 border-red-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-red-500 has-data-[state=checked]:bg-red-500/20 dark:has-data-[state=checked]:bg-red-500/20">
+                                <Checkbox checked={selected.lightning} className="text-red-500 border-red-500" />
+                                <FieldContent>
+                                    <FieldTitle><Zap className="w-4 h-4" /> Efek Lightning</FieldTitle>
+                                    <FieldDescription>
+                                        Menghilangkan pertanyaan selama 4 detik
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                            <FieldLabel onClick={() =>
+                                setSelected(prev => ({
+                                    ...prev,
+                                    freeze: !prev.freeze
+                                }))
+                            }
+                                className="bg-sky-500/10 w-full border text-sky-500 border-sky-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-sky-500 has-data-[state=checked]:bg-sky-500/20 dark:has-data-[state=checked]:bg-sky-500/20">
+                                <Checkbox checked={selected.freeze} className="text-sky-500 border-sky-500" />
+                                <FieldContent>
+                                    <FieldTitle><Snowflake className="w-4 h-4" /> Efek Freeze</FieldTitle>
+                                    <FieldDescription>
+                                        Tidak dapat menjawab selama 4 detik
+                                    </FieldDescription>
+                                </FieldContent>
+                            </FieldLabel>
+                        </FieldGroup>
                     </div>
 
+                    <div className="flex items-center flex-wrap glass gap-2 rounded-xl p-6">
+                        <Button
+                            variant="primaryOutliner"
+                            className={`flex-1 shrink border border-primary ${showManualPanel && "bg-primary/50"}`}
+                            onClick={() => handlePanel("manual")}
+                        >
+                            <Text className="w-4 h-4" />
+                            Manual
+                        </Button>
+                        <Button
+                            variant="primaryOutliner"
+                            className={`flex-1 shrink border border-primary ${showAiPanel && "bg-primary/50"}`}
+                            onClick={() => handlePanel("ai")}
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            AI Generate
+                        </Button>
+                    </div>
+
+                    {/* MANUAL GENERATE */}
+                    <AnimatePresence mode="wait">
+                        {showManualPanel &&
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="glass rounded-2xl p-6 space-y-5">
+                                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                                    <h2 className="font-poppins flex items-center gap-2 font-semibold text-foreground">
+                                        <Text className="w-5 h-5 text-primary" />
+                                        {editingIdx !== null ? `Edit Soal #${editingIdx + 1}` : "Tambah Soal"}
+                                    </h2>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant={qType === "multiple_choice" ? "default" : "outline"}
+                                            className={qType === "multiple_choice" ? "bg-gradient-primary text-primary-foreground" : "bg-primary/10 border-border"}
+                                            onClick={() => setQType("multiple_choice")}
+                                        >
+                                            <ListChecks className="w-4 h-4 mr-1" /> Pilihan Ganda
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={qType === "short_answer" ? "default" : "outline"}
+                                            className={qType === "short_answer" ? "bg-gradient-primary text-primary-foreground" : "bg-primary/10 border-border"}
+                                            onClick={() => setQType("short_answer")}
+                                        >
+                                            <Type className="w-4 h-4 mr-1" /> Isian Singkat
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <Textarea
+                                    placeholder="Tulis pertanyaan..."
+                                    value={qText}
+                                    onChange={(e) => setQText(e.target.value)}
+                                    className="bg-primary/5 resize-none h-18"
+                                    rows={3}
+                                    maxLength={500}
+                                />
+
+                                {/* Image upload */}
+                                <div className="space-y-2">
+                                    <label className="text-sm text-muted-foreground block">Gambar Soal (opsional)</label>
+                                    {qImageUrl ? (
+                                        <div className="relative inline-block">
+                                            <Image width={100} height={100} src={qImageUrl} alt="Preview" className="max-h-40 aspect-auto rounded-xl border border-primary/30" />
+                                            <Button
+                                                type="button"
+                                                variant={'ghost'}
+                                                size={'icon'}
+                                                onClick={() => handleDeleteImage(qImageUrl)}
+                                                disabled={uploading}
+                                                className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center hover:scale-110 transition-transform"
+                                            >
+                                                {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <label className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border cursor-pointer hover:bg-secondary/50 transition-colors">
+                                            {uploading ? (
+                                                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                                            ) : (
+                                                <ImagePlus className="w-5 h-5 text-muted-foreground" />
+                                            )}
+                                            <span className="text-sm text-muted-foreground">
+                                                {uploading ? "Mengupload..." : "Klik untuk upload gambar (maks 5MB)"}
+                                            </span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleImageUpload}
+                                                className="hidden"
+                                                disabled={uploading}
+                                            />
+                                        </label>
+                                    )}
+                                </div>
+
+                                {qType === "multiple_choice" ? (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {qOptions.map((opt, i) => (
+                                            <div
+                                                key={opt.id}
+                                                className={`relative col-span-2 lg:col-span-1 rounded-xl p-3 cursor-pointer transition-all ${qCorrect === opt.id
+                                                    ? "ring-2 ring-primary shadow-glow"
+                                                    : "hover:ring-1 hover:ring-border"
+                                                    }`}
+                                                onClick={() => setQCorrect(opt.id)}
+                                            >
+                                                <div className={`absolute inset-0 rounded-xl border ${optionColors[i]}`} />
+                                                <div className="relative flex items-center gap-2">
+                                                    <div className={`w-10 h-8 shadow-[1px_1px_2px_rgba(0,0,0,0.3)] rounded-full flex items-center justify-center text-xs font-bold ${qCorrect === opt.id ? "bg-green-500 text-primary-foreground" : "bg-card text-muted-foreground"
+                                                        }`}>
+                                                        {qCorrect === opt.id ? <Check className="w-3 h-3" /> : opt.label}
+                                                    </div>
+                                                    <Input
+                                                        placeholder={`Opsi ${opt.label}`}
+                                                        value={opt.text}
+                                                        onChange={(e) => {
+                                                            const updated = [...qOptions];
+                                                            updated[i] = { ...opt, text: e.target.value };
+                                                            setQOptions(updated);
+                                                        }}
+                                                        className="bg-transparent border-none focus-visible:ring-0 text-foreground"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        maxLength={200}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Input
+                                        placeholder="Jawaban yang benar"
+                                        value={qCorrect}
+                                        onChange={(e) => setQCorrect(e.target.value)}
+                                        className="bg-primary/5"
+                                        maxLength={200}
+                                    />
+                                )}
+
+                                <div className="flex gap-4 items-center">
+                                    <div className="flex-1">
+                                        <label className="text-sm text-muted-foreground mb-1 block">Waktu (detik)</label>
+                                        <Input
+                                            type="number"
+                                            value={qTime}
+                                            onChange={(e) => setQTime(Number(e.target.value))}
+                                            min={5}
+                                            max={120}
+                                            className="bg-primary/5"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-sm text-muted-foreground mb-1 block">Poin</label>
+                                        <Input
+                                            type="number"
+                                            value={qPoints}
+                                            onChange={(e) => setQPoints(Number(e.target.value))}
+                                            min={100}
+                                            max={5000}
+                                            step={100}
+                                            className="bg-primary/5"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3">
+                                    {editingIdx !== null && (
+                                        <Button variant="outline" className="border-border" onClick={resetForm}>Batal</Button>
+                                    )}
+                                    <Button className="flex-1 bg-gradient-primary cursor-pointer text-primary-foreground py-5" onClick={addQuestion}>
+                                        <Plus className="w-4 h-4 mr-1" />
+                                        {editingIdx !== null ? "Simpan Perubahan" : "Tambah Soal"}
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        }
+                    </AnimatePresence>
+
                     {/* AI Generate Panel */}
-                    <AnimatePresence>
+                    <AnimatePresence mode="wait">
                         {showAiPanel && (
                             <motion.div
                                 initial={{ opacity: 0, height: 0 }}
@@ -459,7 +717,7 @@ const CreateQuiz = () => {
                             >
                                 <div className="glass rounded-2xl p-6 space-y-4 border border-accent/20">
                                     <div className="flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5 text-accent" />
+                                        <Sparkles className="w-5 h-5 text-primary" />
                                         <h3 className="font-poppins font-bold text-foreground">AI Quiz Generator</h3>
                                     </div>
                                     <p className="text-sm text-muted-foreground">Referensi soal (optional)</p>
@@ -472,9 +730,9 @@ const CreateQuiz = () => {
                                         <div className="flex items-center justify-center pt-5 pb-6 flex-wrap gap-2">
                                             {fileUrl.length > 0 ?
                                                 fileUrl.map(({ size, url, type }: { size: number, url: string, name: string, type: string }) => (
-                                                    <div className={`w-22 h-24 relative flex flex-col shadow items-center justify-center gap-1 rounded-xl ${type == 'PDF' ? 'bg-destructive/10 border-destructive/30' : type == 'IMG' ? 'bg-sky-500/10 border-sky-500/30' : 'bg-primary/10 border-primary/30'} border`} key={url}>
-                                                        <X className="w-5 h-5 absolute -top-1 -right-1 text-destructive cursor-pointer" onClick={(e) => {e.stopPropagation(); setFileUrl((prev) => prev.filter(p => p.url != url))}} />
-                                                        <Link href={url} target="_blank" className={`${type == 'PDF' ? 'text-destructive' : type == 'IMG' ? 'text-sky-500' : 'text-primary'} text-md font-semibold underline`}>{type}</Link>
+                                                    <div className={`w-22 h-24 relative flex flex-col shadow items-center justify-center gap-1 rounded-xl ${type == 'PDF' ? 'bg-destructive/10 border-destructive/30' : type == 'IMG' ? 'bg-sky-500/10 border-sky-500/30' : type == 'CSV' ? 'bg-green-500/10 border-green-500/30' : 'bg-primary/10 border-primary/30'} border`} key={url}>
+                                                        <X className="w-5 h-5 absolute -top-1 -right-1 text-destructive cursor-pointer" onClick={(e) => { e.stopPropagation(); setFileUrl((prev) => prev.filter(p => p.url != url)) }} />
+                                                        <Link href={url} target="_blank" className={`${type == 'PDF' ? 'text-destructive' : type == 'IMG' ? 'text-sky-500' : type == 'CSV' ? 'text-green-500' : 'text-primary'} text-md font-semibold underline`}>{type}</Link>
                                                         <p className="text-muted-foreground text-xs">{convertSize(size)}</p>
                                                     </div>
                                                 ))
@@ -484,7 +742,7 @@ const CreateQuiz = () => {
                                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2" />
                                                     </svg>
                                                     <p className="mb-2 text-sm text-muted-foreground dark:text-gray-400"><span className="font-semibold text-foreground">Click to upload</span> or <span className="font-semibold text-foreground">drag and drop</span></p>
-                                                    <p className="text-xs text-muted-foreground ">(PDF, IMG, DOCS) - (MAX. 5MB)</p>
+                                                    <p className="text-xs text-muted-foreground ">(PDF, JPEG, PNG, CSV) - (MAX. 5MB)</p>
                                                 </div>
                                             }
                                         </div>
@@ -568,227 +826,6 @@ const CreateQuiz = () => {
                             </motion.div>
                         )}
                     </AnimatePresence>
-
-                    <div className="space-y-3 glass rounded-xl p-6">
-                        <section className="flex items-center justify-between">
-                            <h1 className="font-semibold font-poppins">Power Ups</h1>
-                            <p>Dipilih: {Object.entries(selected).map(([key, value]) => value ? key : null).filter(Boolean).length}</p>
-                        </section>
-                        <FieldGroup className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                            <FieldLabel onClick={() =>
-                                setSelected(prev => ({
-                                    ...prev,
-                                    doublePoints: !prev.doublePoints
-                                }))
-                            }
-                                className={"p-4 bg-gold/10 w-full text-gold border-gold rounded-xl flex gap-4 border transition has-data-[state=checked]:border-gold has-data-[state=checked]:bg-gold/20 dark:has-data-[state=checked]:bg-gold/20"}>
-                                <Checkbox checked={selected.doublePoints} className="text-gold border-gold peer" />
-                                <FieldContent>
-                                    <FieldTitle><Star className="w-4 h-4" /> 2x Double Points</FieldTitle>
-                                    <FieldDescription>
-                                        Dapatkan 2x poin untuk jawaban benar
-                                    </FieldDescription>
-                                </FieldContent>
-                            </FieldLabel>
-                            <FieldLabel onClick={() =>
-                                setSelected(prev => ({
-                                    ...prev,
-                                    fiftyFifty: !prev.fiftyFifty
-                                }))
-                            }
-                                className="bg-primary/10 w-full border text-primary border-primary p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-primary has-data-[state=checked]:bg-primary/20 dark:has-data-[state=checked]:bg-primary/20">
-                                <Checkbox checked={selected.fiftyFifty} className="text-primary border-primary" />
-                                <FieldContent>
-                                    <FieldTitle><Shield className="w-4 h-4" /> Fifty Fifty</FieldTitle>
-                                    <FieldDescription>
-                                        Hapus 2 pilihan ganda jawaban salah
-                                    </FieldDescription>
-                                </FieldContent>
-                            </FieldLabel>
-                            <FieldLabel onClick={() =>
-                                setSelected(prev => ({
-                                    ...prev,
-                                    lightning: !prev.lightning
-                                }))
-                            }
-                                className="bg-red-500/10 w-full border text-red-500 border-red-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-red-500 has-data-[state=checked]:bg-red-500/20 dark:has-data-[state=checked]:bg-red-500/20">
-                                <Checkbox checked={selected.lightning} className="text-red-500 border-red-500" />
-                                <FieldContent>
-                                    <FieldTitle><Zap className="w-4 h-4" /> Efek Lightning</FieldTitle>
-                                    <FieldDescription>
-                                        Menghilangkan pertanyaan selama 4 detik
-                                    </FieldDescription>
-                                </FieldContent>
-                            </FieldLabel>
-                            <FieldLabel onClick={() =>
-                                setSelected(prev => ({
-                                    ...prev,
-                                    freeze: !prev.freeze
-                                }))
-                            }
-                                className="bg-sky-500/10 w-full border text-sky-500 border-sky-500 p-4 rounded-xl flex items-center gap-4 transition has-data-[state=checked]:border-sky-500 has-data-[state=checked]:bg-sky-500/20 dark:has-data-[state=checked]:bg-sky-500/20">
-                                <Checkbox checked={selected.freeze} className="text-sky-500 border-sky-500" />
-                                <FieldContent>
-                                    <FieldTitle><Snowflake className="w-4 h-4" /> Efek Freeze</FieldTitle>
-                                    <FieldDescription>
-                                        Tidak dapat menjawab selama 4 detik
-                                    </FieldDescription>
-                                </FieldContent>
-                            </FieldLabel>
-                        </FieldGroup>
-                    </div>
-
-                    <div className="glass rounded-2xl p-6 space-y-5">
-                        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                            <h2 className="font-poppins font-semibold text-foreground">
-                                {editingIdx !== null ? `Edit Soal #${editingIdx + 1}` : "Tambah Soal"}
-                            </h2>
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    variant={qType === "multiple_choice" ? "default" : "outline"}
-                                    className={qType === "multiple_choice" ? "bg-gradient-primary text-primary-foreground" : "bg-primary/10 border-border"}
-                                    onClick={() => setQType("multiple_choice")}
-                                >
-                                    <ListChecks className="w-4 h-4 mr-1" /> Pilihan Ganda
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant={qType === "short_answer" ? "default" : "outline"}
-                                    className={qType === "short_answer" ? "bg-gradient-primary text-primary-foreground" : "bg-primary/10 border-border"}
-                                    onClick={() => setQType("short_answer")}
-                                >
-                                    <Type className="w-4 h-4 mr-1" /> Isian Singkat
-                                </Button>
-                            </div>
-                        </div>
-
-                        <Textarea
-                            placeholder="Tulis pertanyaan..."
-                            value={qText}
-                            onChange={(e) => setQText(e.target.value)}
-                            className="bg-primary/5 resize-none h-18"
-                            rows={3}
-                            maxLength={500}
-                        />
-
-                        {/* Image upload */}
-                        <div className="space-y-2">
-                            <label className="text-sm text-muted-foreground block">Gambar Soal (opsional)</label>
-                            {qImageUrl ? (
-                                <div className="relative inline-block">
-                                    <Image width={100} height={100} src={qImageUrl} alt="Preview" className="max-h-40 aspect-auto rounded-xl border border-primary/30" />
-                                    <Button 
-                                        type="button"
-                                        variant={'ghost'}
-                                        size={'icon'}
-                                        onClick={() => handleDeleteImage(qImageUrl)}
-                                        disabled={uploading}
-                                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center hover:scale-110 transition-transform"
-                                    >
-                                        {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                                    </Button>
-                                </div>
-                            ) : (
-                                <label className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-border cursor-pointer hover:bg-secondary/50 transition-colors">
-                                    {uploading ? (
-                                        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-                                    ) : (
-                                        <ImagePlus className="w-5 h-5 text-muted-foreground" />
-                                    )}
-                                    <span className="text-sm text-muted-foreground">
-                                        {uploading ? "Mengupload..." : "Klik untuk upload gambar (maks 5MB)"}
-                                    </span>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleImageUpload}
-                                        className="hidden"
-                                        disabled={uploading}
-                                    />
-                                </label>
-                            )}
-                        </div>
-
-                        {qType === "multiple_choice" ? (
-                            <div className="grid grid-cols-2 gap-3">
-                                {qOptions.map((opt, i) => (
-                                    <div
-                                        key={opt.id}
-                                        className={`relative col-span-2 lg:col-span-1 rounded-xl p-3 cursor-pointer transition-all ${qCorrect === opt.id
-                                            ? "ring-2 ring-primary shadow-glow"
-                                            : "hover:ring-1 hover:ring-border"
-                                            }`}
-                                        onClick={() => setQCorrect(opt.id)}
-                                    >
-                                        <div className={`absolute inset-0 rounded-xl border ${optionColors[i]}`} />
-                                        <div className="relative flex items-center gap-2">
-                                            <div className={`w-10 h-8 shadow-[1px_1px_2px_rgba(0,0,0,0.3)] rounded-full flex items-center justify-center text-xs font-bold ${qCorrect === opt.id ? "bg-green-500 text-primary-foreground" : "bg-card text-muted-foreground"
-                                                }`}>
-                                                {qCorrect === opt.id ? <Check className="w-3 h-3" /> : opt.label}
-                                            </div>
-                                            <Input
-                                                placeholder={`Opsi ${opt.label}`}
-                                                value={opt.text}
-                                                onChange={(e) => {
-                                                    const updated = [...qOptions];
-                                                    updated[i] = { ...opt, text: e.target.value };
-                                                    setQOptions(updated);
-                                                }}
-                                                className="bg-transparent border-none focus-visible:ring-0 text-foreground"
-                                                onClick={(e) => e.stopPropagation()}
-                                                maxLength={200}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <Input
-                                placeholder="Jawaban yang benar"
-                                value={qCorrect}
-                                onChange={(e) => setQCorrect(e.target.value)}
-                                className="bg-primary/5"
-                                maxLength={200}
-                            />
-                        )}
-
-                        <div className="flex gap-4 items-center">
-                            <div className="flex-1">
-                                <label className="text-sm text-muted-foreground mb-1 block">Waktu (detik)</label>
-                                <Input
-                                    type="number"
-                                    value={qTime}
-                                    onChange={(e) => setQTime(Number(e.target.value))}
-                                    min={5}
-                                    max={120}
-                                    className="bg-primary/5"
-                                />
-                            </div>
-                            <div className="flex-1">
-                                <label className="text-sm text-muted-foreground mb-1 block">Poin</label>
-                                <Input
-                                    type="number"
-                                    value={qPoints}
-                                    onChange={(e) => setQPoints(Number(e.target.value))}
-                                    min={100}
-                                    max={5000}
-                                    step={100}
-                                    className="bg-primary/5"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                            {editingIdx !== null && (
-                                <Button variant="outline" className="border-border" onClick={resetForm}>Batal</Button>
-                            )}
-                            <Button className="flex-1 bg-gradient-primary cursor-pointer text-primary-foreground py-5" onClick={addQuestion}>
-                                <Plus className="w-4 h-4 mr-1" />
-                                {editingIdx !== null ? "Simpan Perubahan" : "Tambah Soal"}
-                            </Button>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Right: Question List */}
