@@ -773,12 +773,12 @@ const CreateQuiz = () => {
                                                     type="text"
                                                     value={aiNumQuestions}
                                                     disabled
-                                                    onChange={(e) => setAiNumQuestions(Math.min(15, Number(e.target.value)))}
+                                                    onChange={(e) => setAiNumQuestions(Number(e.target.value))}
                                                     min={1}
                                                     max={20}
                                                     className="bg-primary/5 w-12 h-12 text-center"
                                                 />
-                                                <Button size={'icon'} variant={'primary'} onClick={() => setAiNumQuestions(Math.max(1, aiNumQuestions + 1))}>
+                                                <Button size={'icon'} variant={'primary'} onClick={() => setAiNumQuestions(Math.min(20, aiNumQuestions + 1))}>
                                                     <Plus className="w-4 h-4" />
                                                 </Button>
                                             </div>
