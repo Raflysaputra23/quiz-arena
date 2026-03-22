@@ -5,34 +5,7 @@ const RafAI = new GoogleGenAI({
   apiKey: process.env.NEXT_PUBLIC_GEMINI_APIKEY,
 });
 
-export const generateQuis = async (prompt: string, files: File[]) => {
-  try {
-    let contents: any = "";
-    if (files.length > 0) {
-      const fileBuffer = [];
-      for (const file of files) {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        fileBuffer.push({
-          mimeType: file.type,
-          buffer: buffer.toString("base64"),
-        });
-      }
-      contents = fileBuffer.map((file) => ({
-        inlineData: {
-          mimeType: file.mimeType,
-          data: file.buffer,
-        },
-      }));
-      contents.push({text: prompt});
-    } else {
-      contents = prompt;
-    }
-
-    const response = await RafAI.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents,
-      config: {
-        systemInstruction: `
+const sistemInstruksiBackup = `
 Anda adalah asissten yang dibuat untuk generate soal Quiz, 
 jika user ingin membuat soal dengan contoh topik, MTK, SAINS, dan apapun itu 
 anda harus membuat soal yang relevan dengan topik yang diberikan, 
@@ -70,7 +43,85 @@ jika file csv tidak mengandung jenis soal, dan pengguna meminta level sulit atau
 Kemudian jika level mudah berikan semua jenis soalnya pilihan ganda / multiple choice ya,
 dan nanti pengguna akan meminta membuat soal dan mengirimkan topik, jumlah soal, dan levelnya,
 untuk soal isian singkat key correct_answer_label jangan diganti tetep keynya itu correct_answer_label ikutin struktur json yang saya berikan,
-anda harus menjawab sesuai dengan perintah pengguna ya dan saya ingatkan lagi anda harus menjawab struktur jsonnya seperti di responSchema.`,
+anda harus menjawab sesuai dengan perintah pengguna ya dan saya ingatkan lagi anda harus menjawab struktur jsonnya seperti di responSchema.
+`;
+
+export const generateQuis = async (prompt: string, files: File[]) => {
+  try {
+    let contents: any = "";
+    if (files.length > 0) {
+      const fileBuffer = [];
+      for (const file of files) {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        fileBuffer.push({
+          mimeType: file.type,
+          buffer: buffer.toString("base64"),
+        });
+      }
+      contents = fileBuffer.map((file) => ({
+        inlineData: {
+          mimeType: file.mimeType,
+          data: file.buffer,
+        },
+      }));
+      contents.push({ text: prompt });
+    } else {
+      contents = prompt;
+    }
+
+    const response = await RafAI.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents,
+      config: {
+        systemInstruction: `
+# ROLE
+Anda adalah AI Spesialis Pembuat Kuis (Quiz Generator) yang cerdas dan presisi. Tugas utama Anda adalah menghasilkan soal kuis berdasarkan topik, file (PDF/Gambar/CSV), jumlah soal, dan tingkat kesulitan yang diberikan pengguna.
+
+# OUTPUT RULE (STRICT)
+- Jawaban Anda **WAJIB** hanya berupa string JSON saja. 
+- **DILARANG** memberikan teks penjelasan, pembuka, atau penutup di luar blok JSON.
+- Struktur JSON harus **PERSIS** mengikuti 'responseSchema' berikut:
+
+{
+  "title": "String judul kuis",
+  "description": "String deskripsi kuis",
+  "questions": [
+    {
+      "type": "multiple_choice atau isian_singkat",
+      "text": "String pertanyaan",
+      "options": [
+        { "label": "A", "text": "Opsi A" },
+        { "label": "B", "text": "Opsi B" },
+        { "label": "C", "text": "Opsi C" },
+        { "label": "D", "text": "Opsi D" }
+      ],
+      "correct_answer_label": "String jawaban (Label atau teks jawaban)",
+      "time_limit": 20,
+      "points": 1000
+    }
+  ]
+}
+
+# QUESTION TYPE LOGIC
+1. **Multiple Choice:** Isi array 'options' dengan 4 pilihan. 'type' bernilai "multiple_choice".
+2. **Isian Singkat:** Kosongkan array 'options' menjadi '[]'. 'type' bernilai "isian_singkat". Key 'correct_answer_label' tetap digunakan untuk menyimpan jawaban benar.
+3. **Randomization:** Anda dapat mencampur jenis soal, namun jumlah "isian_singkat" harus selalu lebih sedikit daripada "multiple_choice".
+
+# DIFFICULTY LEVEL RULES
+- **Level MUDAH:** Semua soal harus "multiple_choice".
+- **Level SULIT/MENENGAH:** Wajib menyertakan soal "isian_singkat". jika level mudah berikan 1 - 2 soal 'isian_singkat', Semakin sulit levelnya, proporsi soal 'isian_singkat' boleh ditambah (namun tetap tidak melebihi jumlah pilihan ganda).
+
+# FILE REFERENCE RULES
+1. **PDF/Gambar:** Buat soal berdasarkan konten teks dan konteks yang ada di dalam file tersebut.
+2. **CSV:** - Ikuti data soal dan jawaban dari file CSV secara ketat.
+   - Jika 'jumlah_soal' yang diminta > jumlah baris di CSV, buat soal tambahan yang relevan dengan topik CSV tersebut.
+   - Jika 'jumlah_soal' < jumlah baris di CSV, ambil soal dari CSV secara acak.
+   - Jika CSV memiliki kolom jenis soal, ikuti instruksi tersebut. Jika tidak ada, gunakan aturan "Difficulty Level" di atas.
+
+# MANDATORY CONSTRAINTS
+- Pastikan semua soal relevan dengan topik (MTK, Sains, dll).
+- Pastikan JSON valid dan dapat langsung di-parse oleh sistem.
+- Selalu gunakan key 'correct_answer_label' baik untuk pilihan ganda maupun isian singkat.`,
         maxOutputTokens: 6080,
         temperature: 0.7,
         responseSchema: {
