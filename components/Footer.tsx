@@ -35,7 +35,7 @@ const Footer = () => {
                         <h4 className="font-poppins font-semibold text-foreground">Sosial Media</h4>
                         <div className="flex gap-3">
                             <a
-                                href="https://github.com/rafly"
+                                href="https://github.com/Raflysaputra23"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-10 h-10 rounded-xl glass flex items-center justify-center hover:shadow-glow transition-all duration-300 group"
@@ -43,7 +43,7 @@ const Footer = () => {
                                 <Github className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                             </a>
                             <a
-                                href="https://instagram.com/rafly"
+                                href="https://instagram.com/raflyyyyyyyy23"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-10 h-10 rounded-xl glass flex items-center justify-center hover:shadow-glow transition-all duration-300 group"
@@ -51,7 +51,7 @@ const Footer = () => {
                                 <Instagram className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                             </a>
                             <a
-                                href="mailto:rafly@example.com"
+                                href="mailto:966raflisaputra@gmail.com"
                                 className="w-10 h-10 rounded-xl glass flex items-center justify-center hover:shadow-glow transition-all duration-300 group"
                             >
                                 <Mail className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />

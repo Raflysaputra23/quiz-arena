@@ -13,7 +13,7 @@ const Cta = () => {
     const handleCreate = () => {
         if (!user) {
             toastError("Silakan login terlebih dahulu untuk membuat quiz!");
-            router.push("/auth");
+            router.push("/login");
             return;
         }
         router.push("/create");

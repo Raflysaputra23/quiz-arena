@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, use } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, Check, X, Loader2, Eye, Users, Trophy, Clock, Skull, Gauge, Expand } from "lucide-react";
+import { Zap, Check, X, Loader2, Eye, Users, Trophy, Clock, Skull, Gauge, Expand, ArrowRight } from "lucide-react";
 import { useQuiz } from "@/hooks/useQuiz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,9 +41,10 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     const [isCorrect, setIsCorrect] = useState(false);
     const [earnedPoints, setEarnedPoints] = useState(0);
     const [timeExpired, setTimeExpired] = useState(false);
+    const [showBtnNext, setShowBtnNext] = useState(false);
     const [showExpandSidebar, setShowExpandSidebar] = useState<boolean>(false);
-    // const [allAnsweredCount, setAllAnswerCount] = useState<number>(0);
     const autoAdvanceTimer = useRef<NodeJS.Timeout | null>(null);
+    const btnNextTimer = useRef<NodeJS.Timeout | null>(null);
     const hasAutoAdvanced = useRef(false);
     const lastTickRef = useRef(0);
     const timeExpiredRef = useRef(false);
@@ -153,6 +154,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 setEarnedPoints(0);
                 setTimeExpired(false);
                 setHiddenOptions([]);
+                setShowBtnNext(false);
                 setExtraTimeAdded(false);
                 setDoublePointsActive(false);
                 timeExpiredRef.current = false;
@@ -167,12 +169,12 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     }, [questionIdx, question?.id, currentRoom?.questionStartTime]);
 
     useEffect(() => {
-        (async() => {
+        (async () => {
             if (question) {
                 const participantAnswered = currentParticipant?.answers[question.id];
                 const isAnswered = participantAnswered ? true : false;
                 const isCorrect = participantAnswered ? participantAnswered.correct : false;
-    
+
                 setAnswered(isAnswered);
                 setShowResult(isAnswered);
                 setIsCorrect(isCorrect);
@@ -180,37 +182,6 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
             }
         })();
     }, [currentParticipant?.answers, question, questionIdx]);
-
-    // useEffect(() => {
-    //     const checkAllAnswered = async () => {
-    //         const supabase = supaRef.current;
-    //         const sessionId = currentRoom?.sessionId;
-    //         const questionId = currentRoom?.quiz.questions[currentRoom.currentQuestionIndex].id;
-    //         if (!sessionId && questionId) return;
-
-    //         try {
-    //             const { data: participants, error } = await supabase
-    //                 .from("session_participants")
-    //                 .select("id")
-    //                 .eq("session_id", sessionId);
-    //             if (error) throw error;
-    //             const participantIds = participants.map(p => p.id);
-    //             const { count } = await supabase
-    //                 .from("participant_answers")
-    //                 .select("*", { count: "exact", head: true })
-    //                 .eq("question_id", questionId)
-    //                 .in("participant_id", participantIds);
-    //             console.log("count: ", count);
-    //             setAllAnswerCount(count ?? 0);
-    //         } catch (error) {
-    //             console.log(error);
-    //         }
-    //     }
-
-    //     (async () => {
-    //         await checkAllAnswered();
-    //     })()
-    // }, [currentRoom?.sessionId, currentRoom?.quiz, currentRoom?.currentQuestionIndex]);
 
     const handleSubmit = useCallback(async (answer: string) => {
         if (submitLockRef.current) return;
@@ -315,6 +286,14 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
         return () => cancelAnimationFrame(frame);
     }, [question?.id, currentRoom?.questionStartTime, answered, timeExpired, extraTimeAdded, mode, questionIdx, handleSubmit]);
 
+    useEffect(() => {
+        if (!timeExpired && !allAnswered) return;
+        btnNextTimer.current = setTimeout(() => setShowBtnNext(true), 5000);
+
+        return () =>  {
+            if(btnNextTimer.current) clearTimeout(btnNextTimer.current);
+        }
+    }, [timeExpired, allAnswered]);
     // Auto-advance + survival all-eliminated check
     useEffect(() => {
         if (!isHost || !currentRoom || hasAutoAdvanced.current) return;
@@ -347,10 +326,10 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                 }
             }
 
-            setShowResult(true);
             autoAdvanceTimer.current = setTimeout(async () => {
                 if (hasAutoAdvanced.current) return;
                 hasAutoAdvanced.current = true;
+                if(btnNextTimer.current) clearTimeout(btnNextTimer.current);
 
                 // Survival mode: check if all participants are eliminated → end game immediately
                 if (mode === "survival") {
@@ -790,6 +769,23 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                         <Clock className="w-4 h-4 animate-spin" />
                                         <span>Soal berikutnya akan muncul otomatis...</span>
                                     </motion.div>
+
+                                    {showBtnNext && 
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 0.5 }}
+                                        className="flex flex-col gap-2 items-center justify-center"
+                                    >
+                                        <p className="text-muted-foreground text-sm">Soal tidak muncul otomatis?</p>
+                                        <Button variant={'primary'}
+                                            onClick={async () => await nextQuestion()}
+                                            disabled={timeExpired}
+                                            >
+                                            Next Question <ArrowRight className="w-4 h-4" />
+                                        </Button>
+                                    </motion.div>
+                                    }
                                 </motion.div>
                             )}
                         </motion.div>
