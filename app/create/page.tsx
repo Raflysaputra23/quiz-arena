@@ -147,6 +147,7 @@ const CreateQuiz = () => {
         setAiTopic("");
         setAiNumQuestions(5);
         setAiDifficulty("easy");
+        setFile([]);
     }
 
     const handlePanel = (panel: string) => {
