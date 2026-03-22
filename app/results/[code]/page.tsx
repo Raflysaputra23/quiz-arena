@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { use, useEffect, useRef, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Trophy, Medal, Home, Zap, Crown, BarChart3, Clock, Target, TrendingUp } from "lucide-react";
+import { Trophy, Medal, Home, Zap, Crown, BarChart3, Clock, Target, TrendingUp, Check, X, Expand } from "lucide-react";
 import { useQuiz } from "@/hooks/useQuiz";
 import { Button } from "@/components/ui/button";
 import { Sounds } from "@/lib/sounds";
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/supabase/client";
+import LoadingScreen from "@/components/LoadingScreen";
 
 interface QuestionStat {
   questionText: string;
@@ -28,11 +30,12 @@ interface QuestionStat {
 const Results = ({ params }: { params: Promise<{ code: string }> }) => {
   const { code } = use(params);
   const router = useRouter();
-  const { currentRoom, currentParticipant, loadRoomByCode } = useQuiz();
+  const { currentRoom, currentParticipant, loadRoomByCode, isHost } = useQuiz();
   const [stats, setStats] = useState<QuestionStat[]>([]);
   const [showStats, setShowStats] = useState(false);
   const [confettiFired, setConfettiFired] = useState(false);
   const supaRef = useRef(createClient());
+  const [resultMap, setResultMap] = useState<Record<string, Record<string, boolean>>>({});
 
   useEffect(() => {
     if (!currentRoom && code) {
@@ -72,41 +75,84 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
     })()
   }, [currentRoom]);
 
+  const borderTop = (i: number) => {
+    switch (i) {
+      case 0:
+        return "bg-gold/20 border-gold";
+      case 1:
+        return "bg-slate-400/20 border-slate-400";
+      case 2:
+        return "bg-amber-700/20 border-amber-700";
+      default:
+        return "bg-secondary border-secondary";
+    }
+  }
+
   // Load per-question stats
   useEffect(() => {
     if (!currentRoom) return;
     const loadStats = async () => {
-      const participantIds = currentRoom.participants.map((p) => p.id);
-      if (participantIds.length === 0) return;
       const supabase = supaRef.current;
+      const participantIds = currentRoom.participants.map((p) => p.id);
+      const { data } = await supabase
+        .from("participant_answers")
+        .select("participant_id, question_id, is_correct, time_taken")
+        .in("participant_id", participantIds);
 
-      const questionStats: QuestionStat[] = [];
-      for (const q of currentRoom.quiz.questions) {
-        const { data } = await supabase
-          .from("participant_answers")
-          .select("is_correct, time_taken")
-          .eq("question_id", q.id)
-          .in("participant_id", participantIds);
+      const resultMap: Record<string, Record<string, boolean>> = {}
+      const statsMap: Record<string, QuestionStat> = {}
 
-        if (data) {
-          questionStats.push({
-            questionText: q.text,
-            totalAnswers: data.length,
-            correctCount: data.filter((a) => a.is_correct).length,
-            avgTime: data.length > 0 ? data.reduce((s, a) => s + Number(a.time_taken), 0) / data.length : 0,
-          });
+      currentRoom.quiz.questions.forEach((q) => {
+        resultMap[q.id] = {}
+        statsMap[q.id] = {
+          questionText: q.text,
+          totalAnswers: 0,
+          correctCount: 0,
+          avgTime: 0,
         }
-      }
-      setStats(questionStats);
+      })
+
+      data?.forEach((row) => {
+        resultMap[row.question_id][row.participant_id] = row.is_correct
+
+        const stat = statsMap[row.question_id]
+        stat.totalAnswers++
+        if (row.is_correct) stat.correctCount++
+        stat.avgTime += Number(row.time_taken)
+      })
+
+      const finalStats = Object.values(statsMap).map((s) => ({
+        ...s,
+        avgTime: s.totalAnswers ? s.avgTime / s.totalAnswers : 0,
+      }))
+
+      setResultMap(resultMap)
+      setStats(finalStats)
     };
     loadStats();
   }, [currentRoom]);
 
-  if (!currentRoom) return null;
-
-  const sorted = [...currentRoom.participants].sort((a, b) => b.score - a.score);
+  const sorted = currentRoom ? [...currentRoom.participants].sort((a, b) => b.score - a.score) : [];
   const top3 = sorted.slice(0, 3);
-  const rest = sorted.slice(3);
+  const rest = sorted.slice(0);
+
+  const totalMap = useMemo(() => {
+    if (!resultMap || !currentRoom) return {}
+
+    const map: Record<string, number> = {}
+
+    rest.forEach((p) => {
+      let total = 0
+
+      currentRoom.quiz.questions.forEach((q) => {
+        if (resultMap[q.id]?.[p.id]) total++
+      })
+
+      map[p.id] = total
+    })
+
+    return map
+  }, [resultMap, rest, currentRoom]);
 
   const podiumOrder = [1, 0, 2];
   const podiumHeights = ["h-28", "h-40", "h-20"];
@@ -127,6 +173,8 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
   const totalCorrectOverall = stats.reduce((s, q) => s + q.correctCount, 0);
   const totalAnswersOverall = stats.reduce((s, q) => s + q.totalAnswers, 0);
   const overallAccuracy = totalAnswersOverall > 0 ? Math.round((totalCorrectOverall / totalAnswersOverall) * 100) : 0;
+
+  if (!currentRoom) return <LoadingScreen />;
 
   return (
     <div className="min-h-screen quiz-pattern flex flex-col items-center p-6">
@@ -193,7 +241,7 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
                     initial={{ height: 0 }}
                     animate={{ height: "auto" }}
                     transition={{ delay: 0.8 + posIdx * 0.2, duration: 0.5 }}
-                    className={`w-24 ${podiumHeights[posIdx]} rounded-t-xl bg-gradient-to-t ${podiumColors[posIdx]} flex items-center justify-center overflow-hidden`}
+                    className={`w-24 ${podiumHeights[posIdx]} rounded-t-xl bg-linear-to-t ${podiumColors[posIdx]} flex items-center justify-center overflow-hidden`}
                   >
                     <span className="text-2xl font-poppins font-bold text-foreground">#{rank + 1}</span>
                   </motion.div>
@@ -204,7 +252,7 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
         )}
 
         {/* Rest in table */}
-        {rest.length > 0 && (
+        {isHost && rest.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -214,9 +262,13 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="w-16 text-center text-muted-foreground">Peringkat</TableHead>
-                  <TableHead className="text-muted-foreground">Peserta</TableHead>
-                  <TableHead className="text-right text-muted-foreground">Skor</TableHead>
+                  <TableHead className="sticky left-0 z-20 w-16 bg-[#0e1525] text-center text-muted-foreground">Peringkat</TableHead>
+                  <TableHead className="sticky left-20 z-20 bg-[#0e1525] text-muted-foreground">Peserta</TableHead>
+                  {currentRoom.quiz.questions.map((q, i) => (
+                    <TableHead className="text-center text-muted-foreground" key={q.id}>S{i + 1}</TableHead>
+                  ))}
+                  <TableHead className="text-center text-muted-foreground">Total</TableHead>
+                  <TableHead className="text-center text-muted-foreground">Skor</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -228,18 +280,32 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
                     transition={{ delay: 1.3 + i * 0.08 }}
                     className="border-border hover:bg-muted/50"
                   >
-                    <TableCell className="text-center font-poppins font-bold text-muted-foreground">
-                      #{i + 4}
+                    <TableCell className="sticky left-0 z-10 bg-[#0e1525] text-center font-poppins font-bold text-muted-foreground">
+                      #{i + 1}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="sticky left-20 z-10 bg-[#0e1525]">
                       <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-lg">
+                        <span className={`w-8 h-8 ${borderTop(i)} rounded-full border flex items-center justify-center text-lg`}>
                           {p.avatar}
                         </span>
                         <span className="font-medium text-foreground">{p.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-poppins font-bold text-primary">
+                    {resultMap && currentRoom.quiz.questions.map((q) => {
+                      const correct = resultMap[q.id]?.[p.id]
+
+                      return (
+                        <TableCell key={q.id} className="text-center">
+                          {correct === true && <Check className="text-green-500 w-5 h-5" />}
+                          {correct === false && <X className="text-destructive w-5 h-5" />}
+                          {correct === undefined && <span className="text-muted-foreground w-5 h-5">-</span>}
+                        </TableCell>
+                      )
+                    })}
+                    <TableCell className="text-center font-poppins font-bold text-muted-foreground">
+                      {totalMap[p.id]}/{currentRoom.quiz.questions.length}
+                    </TableCell>
+                    <TableCell className="text-center font-poppins font-bold text-primary">
                       {p.score} pts
                     </TableCell>
                   </motion.tr>
