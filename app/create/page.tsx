@@ -700,7 +700,7 @@ const CreateQuiz = () => {
                                     {editingIdx !== null && (
                                         <Button variant="outline" className="border-border" onClick={resetForm}>Batal</Button>
                                     )}
-                                    <Button className="flex-1 bg-gradient-primary cursor-pointer text-primary-foreground py-5" onClick={addQuestion}>
+                                    <Button className="flex-1 bg-gradient-primary cursor-pointer text-primary-foreground py-5" onSubmit={addQuestion} onClick={addQuestion}>
                                         <Plus className="w-4 h-4 mr-1" />
                                         {editingIdx !== null ? "Simpan Perubahan" : "Tambah Soal"}
                                     </Button>
@@ -810,6 +810,7 @@ const CreateQuiz = () => {
                                     <Button
                                         variant={'primary'}
                                         className="w-full py-5"
+                                        onSubmit={handleAiGenerate}
                                         onClick={handleAiGenerate}
                                         disabled={aiGenerating}
                                     >

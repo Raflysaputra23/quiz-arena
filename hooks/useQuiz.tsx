@@ -182,15 +182,7 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
         const me = currentParticipantRef.current;
 
         let efek = null;
-
-        if (me?.id === nextSkill.id_participant) {
-            efek = null;
-        } else if (me?.id === nextSkill.id_target) {
-            efek = nextSkill.skill;
-        } else if (nextSkill.id_target === null) {
-            efek = nextSkill.skill;
-        }
-
+        if (me?.id === nextSkill.id_target) efek = nextSkill.skill;
         setEfekSkill(efek);
 
         setTimeout(() => {

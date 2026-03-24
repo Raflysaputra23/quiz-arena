@@ -221,6 +221,7 @@ const Marketplace = () => {
               <Input
                 placeholder="Nama kamu"
                 value={name}
+                autoFocus
                 onChange={(e) => setName(e.target.value)}
                 className="bg-primary/10 border-border h-12"
                 maxLength={20}
@@ -228,6 +229,7 @@ const Marketplace = () => {
               <div className="flex justify-center items-center gap-2">
                 <Button
                   variant={'primary'}
+                  onSubmit={handleJoin}
                   className="flex-1 group"
                   onClick={handleJoin}
                   disabled={joining}

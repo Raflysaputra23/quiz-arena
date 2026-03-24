@@ -190,6 +190,7 @@ const Hero = () => {
                                     variant={'primary'}
                                     className="flex-1 group"
                                     onClick={handleJoin}
+                                    onSubmit={handleJoin}
                                     disabled={joining}
                                 >
                                     {joining ? <span className="flex items-center gap-2">Bergabung <Loader2 className="animate-spin" /></span> : "Gabung"}

@@ -384,14 +384,18 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
         const supabase = supaRef.current;
         setPowerUps((p) => ({ ...p, freeze: true }));
         if (!currentParticipant?.id || !currentRoom?.sessionId) return;
+        // GET RANDOM PARTICIPANT AND NOT WITH MY PARTICIPANT
+        const others = currentRoom?.participants.filter(p => p.id !== currentParticipant?.id);
+        const randomParticipant = others[Math.floor(Math.random() * others.length)];
 
         await supabase.from('skill_participants')
             .insert({
                 id_session: currentRoom?.sessionId,
                 id_participant: currentParticipant?.id,
+                id_target: randomParticipant?.id,
                 skill: 'freeze'
             });
-    }, [currentParticipant?.id, currentRoom?.sessionId]);
+    }, [currentParticipant?.id, currentRoom?.sessionId, currentRoom?.participants]);
 
     const handleLightning = useCallback(async () => {
         const supabase = supaRef.current;
