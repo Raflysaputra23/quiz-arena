@@ -8,6 +8,7 @@ import { toastError } from "@/lib/toast";
 import { Button } from "./ui/button";
 import { ChevronDown, Eye, Gamepad2, Globe2, Loader2, Plus, Users } from "lucide-react";
 import { Input } from "./ui/input";
+import FloatingIcons from "./FloatingIcons";
 
 
 const Hero = () => {
@@ -62,13 +63,18 @@ const Hero = () => {
         { value: "4", label: "Power-Ups" },
     ];
 
+    
+
     return (
-        <motion.section style={{ opacity: showJoin ? 100 : heroOpacity, scale: showJoin ? 1 : heroScale }} className="relative py-20 md:py-32 px-4 overflow-hidden">
+        <motion.section style={{ opacity: showJoin ? 100 : heroOpacity, scale: showJoin ? 1 : heroScale }} className="relative z-10 py-20 md:py-32 px-4 overflow-hidden">
+            {/* Floating Icons */}
+            <FloatingIcons />
+            
             {/* Decorative elements */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-20 left-[10%] w-72 h-72 rounded-full bg-primary/5 blur-[120px]" />
                 <div className="absolute bottom-20 right-[10%] w-96 h-96 rounded-full bg-accent/5 blur-[120px]" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/3 blur-[200px]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-150 rounded-full bg-primary/3 blur-[200px]" />
             </div>
 
             <div className="max-w-4xl mx-auto text-center relative z-10 space-y-8">
