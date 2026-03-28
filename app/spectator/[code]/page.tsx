@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useMemo, use } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Eye, Users, Trophy, Zap, Loader2, ArrowLeft, Clock, BarChart3, Crown } from "lucide-react";
+import { Eye, Users, Trophy, Zap, ArrowLeft, BarChart3, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import CircularTimer from "@/components/CircularTimer";
@@ -25,6 +25,12 @@ interface SpectatorRoom {
     mode: string;
 }
 
+type ParticipantAnswerRow = {
+    question_id?: string;
+    participant_id?: string;
+    session_id?: string;
+};
+
 const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
     const { code } = use(params);
     const router = useRouter();
@@ -32,142 +38,250 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [timeLeft, setTimeLeft] = useState(0);
-    const subsRef = useRef<any[]>([]);
+
+    const subsRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]>[]>([]);
     const supaRef = useRef(createClient());
+    const mountedRef = useRef(true);
+    const currentQuestionIdRef = useRef<string | null>(null);
+    const prevQuestionIdForDedupRef = useRef<string | null>(null);
+    const countedParticipantIdsRef = useRef<Set<string>>(new Set());
 
-    const loadSession = async (roomCode: string) => {
-        setLoading(true);
-        const supabase = supaRef.current;
-        const { data: session } = await supabase
-            .from("quiz_sessions")
-            .select("*, quizzes(*, questions(*, question_options(*)))")
-            .eq("room_code", roomCode)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .single();
-
-        if (!session) {
-            setError("Sesi tidak ditemukan!");
-            setLoading(false);
-            return;
-        }
-
-        if (session.status === "finished") {
-            router.push(`/results/${roomCode}`);
-            return;
-        }
-
-        const quiz = session.quizzes;
-        const questions = (quiz.questions || [])
-            .sort((a: any, b: any) => a.sort_order - b.sort_order)
-            .map((q: any) => ({
-                id: q.id,
-                text: q.text,
-                timeLimit: q.time_limit,
-                type: q.type,
-                points: q.points,
-                imageUrl: q.image_url || undefined,
-            }));
-
-        const { data: participants } = await supabase
-            .from("session_participants")
-            .select("*")
-            .eq("session_id", session.id);
-
-        setRoom({
-            sessionId: session.id,
-            quizTitle: quiz.title,
-            status: session.status,
-            currentQuestionIndex: session.current_question_index,
-            questionStartTime: session.question_start_time ? new Date(session.question_start_time).getTime() : 0,
-            totalQuestions: questions.length,
-            questions,
-            participants: (participants || []).map((p) => ({
-                id: p.id,
-                name: p.guest_name || "Player",
-                avatar: p.avatar,
-                score: p.score,
-            })),
-            answerCount: 0,
-            mode: session.mode || "normal",
-        });
-
-        // Subscribe to realtime
-        const sessionCh = supabase
-            .channel(`spec-session-${session.id}`)
-            .on("postgres_changes", { event: "UPDATE", schema: "public", table: "quiz_sessions", filter: `id=eq.${session.id}` }, (payload) => {
-                const d = payload.new;
-                if (d.status === "finished") {
-                    router.push(`/results/${roomCode}`);
-                    return;
-                }
-                setRoom(prev => prev ? {
-                    ...prev,
-                    status: d.status,
-                    currentQuestionIndex: d.current_question_index,
-                    questionStartTime: d.question_start_time ? new Date(d.question_start_time).getTime() : prev.questionStartTime,
-                    answerCount: d.current_question_index !== prev.currentQuestionIndex ? 0 : prev.answerCount,
-                    mode: d.mode || prev.mode,
-                } : prev);
-            })
-            .subscribe();
-
-        const partCh = supabase
-            .channel(`spec-parts-${session.id}`)
-            .on("postgres_changes", { event: "*", schema: "public", table: "session_participants", filter: `session_id=eq.${session.id}` }, async () => {
-                const { data } = await supabase.from("session_participants").select("*").eq("session_id", session.id);
-                if (data) {
-                    setRoom(prev => prev ? {
-                        ...prev,
-                        participants: data.map((p) => ({ id: p.id, name: p.guest_name || "Player", avatar: p.avatar, score: p.score })),
-                    } : prev);
-                }
-            })
-            .subscribe();
-
-        const ansCh = supabase
-            .channel(`spec-ans-${session.id}`)
-            .on("postgres_changes", { event: "INSERT", schema: "public", table: "participant_answers" }, async () => {
-                const { data: parts } = await supabase.from("session_participants").select("*").eq("session_id", session.id);
-                if (parts) {
-                    setRoom(prev => {
-                        if (!prev) return prev;
-                        return {
-                            ...prev,
-                            participants: parts.map((p) => ({ id: p.id, name: p.guest_name || "Player", avatar: p.avatar, score: p.score })),
-                            answerCount: prev.answerCount + 1,
-                        };
-                    });
-                }
-            })
-            .subscribe();
-
-        subsRef.current = [sessionCh, partCh, ansCh];
-        setLoading(false);
-    };
+    const activeQuestionId = room?.questions?.[room?.currentQuestionIndex ?? 0]?.id ?? null;
 
     useEffect(() => {
-        const supabase = supaRef.current;
-        (async() => {
-            if (code) await loadSession(code);
-        })()
-        return () => {
-            subsRef.current.forEach(ch => supabase.removeChannel(ch));
+        if (prevQuestionIdForDedupRef.current !== activeQuestionId) {
+            prevQuestionIdForDedupRef.current = activeQuestionId;
+            currentQuestionIdRef.current = activeQuestionId;
+            countedParticipantIdsRef.current.clear();
+        }
+    }, [activeQuestionId]);
+
+    useEffect(() => {
+        const q = room?.questions?.[room.currentQuestionIndex ?? 0];
+        if (!room || room.status !== "playing" || !q) {
+            return;
+        }
+        const questionStartTime = room.questionStartTime;
+        const timeLimit = q.timeLimit;
+        const tick = () => {
+            const elapsed = Math.floor((Date.now() - questionStartTime) / 1000);
+            setTimeLeft(Math.max(0, timeLimit - elapsed));
         };
-    }, [code]);
-
-
-    // Timer
-    useEffect(() => {
-        if (!room || room.status !== "playing") return;
-        const q = room.questions[room.currentQuestionIndex];
-        if (!q) return;
-        const interval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - room.questionStartTime) / 1000);
-            setTimeLeft(Math.max(0, q.timeLimit - elapsed));
-        }, 200);
+        tick();
+        const interval = setInterval(tick, 200);
         return () => clearInterval(interval);
-    }, [room?.currentQuestionIndex, room?.questionStartTime, room?.status]);
+    }, [room, room?.status, room?.currentQuestionIndex, room?.questionStartTime, room?.questions]);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        const supabase = supaRef.current;
+
+        const clearSubs = () => {
+            subsRef.current.forEach((ch) => supabase.removeChannel(ch));
+            subsRef.current = [];
+        };
+
+        const loadSession = async (roomCode: string) => {
+            setError("");
+            setLoading(true);
+            clearSubs();
+
+            const { data: session, error: sessionError } = await supabase
+                .from("quiz_sessions")
+                .select("*, quizzes(*, questions(*, question_options(*)))")
+                .eq("room_code", roomCode)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .single();
+
+            if (!mountedRef.current) return;
+
+            if (sessionError || !session) {
+                const msg =
+                    sessionError?.code === "PGRST116"
+                        ? "Sesi tidak ditemukan!"
+                        : sessionError?.message || "Sesi tidak ditemukan!";
+                setError(msg);
+                setRoom(null);
+                setLoading(false);
+                return;
+            }
+
+            if (session.status === "finished") {
+                setLoading(false);
+                router.push(`/results/${roomCode}`);
+                return;
+            }
+
+            const quiz = session.quizzes;
+            if (!quiz) {
+                setError("Data quiz tidak lengkap.");
+                setRoom(null);
+                setLoading(false);
+                return;
+            }
+
+            const questions = (quiz.questions || [])
+                .sort((a: any, b: any) => a.sort_order - b.sort_order)
+                .map((q: any) => ({
+                    id: q.id,
+                    text: q.text,
+                    timeLimit: q.time_limit,
+                    type: q.type,
+                    points: q.points,
+                    imageUrl: q.image_url || undefined,
+                }));
+
+            const { data: participants } = await supabase
+                .from("session_participants")
+                .select("*")
+                .eq("session_id", session.id);
+
+            if (!mountedRef.current) return;
+
+            const initialQid = questions[session.current_question_index]?.id ?? null;
+            prevQuestionIdForDedupRef.current = initialQid;
+            currentQuestionIdRef.current = initialQid;
+            countedParticipantIdsRef.current.clear();
+
+            setRoom({
+                sessionId: session.id,
+                quizTitle: quiz.title || "Quiz",
+                status: session.status,
+                currentQuestionIndex: session.current_question_index,
+                questionStartTime: session.question_start_time
+                    ? new Date(session.question_start_time).getTime()
+                    : 0,
+                totalQuestions: questions.length,
+                questions,
+                participants: (participants || []).map((p) => ({
+                    id: p.id,
+                    name: p.guest_name || "Player",
+                    avatar: p.avatar,
+                    score: p.score,
+                })),
+                answerCount: 0,
+                mode: session.mode || "normal",
+            });
+
+            const sessionId = session.id;
+
+            const sessionCh = supabase
+                .channel(`spec-session-${sessionId}`)
+                .on(
+                    "postgres_changes",
+                    { event: "UPDATE", schema: "public", table: "quiz_sessions", filter: `id=eq.${sessionId}` },
+                    (payload) => {
+                        if (!mountedRef.current) return;
+                        const d = payload.new as Record<string, unknown>;
+                        if (d.status === "finished") {
+                            router.push(`/results/${roomCode}`);
+                            return;
+                        }
+                        setRoom((prev) =>
+                            prev
+                                ? {
+                                      ...prev,
+                                      status: d.status as string,
+                                      currentQuestionIndex: d.current_question_index as number,
+                                      questionStartTime: d.question_start_time
+                                          ? new Date(d.question_start_time as string).getTime()
+                                          : prev.questionStartTime,
+                                      answerCount:
+                                          d.current_question_index !== prev.currentQuestionIndex
+                                              ? 0
+                                              : prev.answerCount,
+                                      mode: (d.mode as string) || prev.mode,
+                                  }
+                                : prev
+                        );
+                    }
+                )
+                .subscribe();
+
+            const partCh = supabase
+                .channel(`spec-parts-${sessionId}`)
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "*",
+                        schema: "public",
+                        table: "session_participants",
+                        filter: `session_id=eq.${sessionId}`,
+                    },
+                    async () => {
+                        if (!mountedRef.current) return;
+                        const { data } = await supabase.from("session_participants").select("*").eq("session_id", sessionId);
+                        if (!mountedRef.current || !data) return;
+                        setRoom((prev) =>
+                            prev
+                                ? {
+                                      ...prev,
+                                      participants: data.map((p) => ({
+                                          id: p.id,
+                                          name: p.guest_name || "Player",
+                                          avatar: p.avatar,
+                                          score: p.score,
+                                      })),
+                                  }
+                                : prev
+                        );
+                    }
+                )
+                .subscribe();
+
+            const ansCh = supabase
+                .channel(`spec-ans-${sessionId}`)
+                .on(
+                    "postgres_changes",
+                    {
+                        event: "INSERT",
+                        schema: "public",
+                        table: "participant_answers",
+                        filter: `session_id=eq.${sessionId}`,
+                    },
+                    async (payload) => {
+                        if (!mountedRef.current) return;
+                        const row = payload.new as ParticipantAnswerRow;
+                        if (!row?.question_id || !row?.participant_id) return;
+                        if (row.question_id !== currentQuestionIdRef.current) return;
+                        if (countedParticipantIdsRef.current.has(row.participant_id)) return;
+                        countedParticipantIdsRef.current.add(row.participant_id);
+
+                        const { data: parts } = await supabase
+                            .from("session_participants")
+                            .select("*")
+                            .eq("session_id", sessionId);
+
+                        if (!mountedRef.current || !parts) return;
+                        setRoom((prev) => {
+                            if (!prev) return prev;
+                            return {
+                                ...prev,
+                                participants: parts.map((p) => ({
+                                    id: p.id,
+                                    name: p.guest_name || "Player",
+                                    avatar: p.avatar,
+                                    score: p.score,
+                                })),
+                                answerCount: prev.answerCount + 1,
+                            };
+                        });
+                    }
+                )
+                .subscribe();
+
+            subsRef.current = [sessionCh, partCh, ansCh];
+            if (mountedRef.current) setLoading(false);
+        };
+
+        if (code) void loadSession(code);
+
+        return () => {
+            mountedRef.current = false;
+            clearSubs();
+        };
+    }, [code, router]);
 
     const sortedParticipants = useMemo(() => {
         if (!room) return [];
@@ -194,7 +308,6 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
 
     return (
         <div className="min-h-screen quiz-pattern flex flex-col overflow-hidden">
-            {/* Header */}
             <motion.div
                 initial={{ y: -20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
@@ -245,7 +358,6 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
                 </div>
             ) : (
                 <main className="flex-1 flex flex-col lg:flex-row gap-6 p-4 max-w-6xl mx-auto w-full">
-                    {/* Question Area */}
                     <div className="flex-1 flex flex-col items-center justify-center space-y-6">
                         {question && (
                             <AnimatePresence mode="wait">
@@ -258,7 +370,11 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
                                     className="w-full space-y-6"
                                 >
                                     <div className="flex justify-center">
-                                        <CircularTimer timeLeft={timeLeft} totalTime={question.timeLimit} size={80} />
+                                        <CircularTimer
+                                            timeLeft={room.status === "playing" ? timeLeft : 0}
+                                            totalTime={question.timeLimit}
+                                            size={80}
+                                        />
                                     </div>
 
                                     <div className="glass rounded-2xl p-8 text-center relative overflow-hidden">
@@ -273,19 +389,24 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
                                         </motion.div>
 
                                         {question.imageUrl && (
-                                            <Image src={question.imageUrl} alt="" className="max-h-48 mx-auto rounded-xl mb-4 object-contain" />
+                                            <Image
+                                                src={question.imageUrl}
+                                                alt=""
+                                                className="max-h-48 mx-auto rounded-xl mb-4 object-contain"
+                                            />
                                         )}
 
                                         <h2 className="text-2xl md:text-3xl font-display font-bold text-foreground leading-relaxed">
                                             {question.text}
                                         </h2>
 
-                                        <div className="mt-4 flex items-center justify-center gap-4 text-sm text-muted-foreground">
+                                        <div className="mt-4 flex flex-col lg:flex-row items-center justify-center gap-4 text-sm text-muted-foreground">
                                             <span className="flex items-center gap-1">
                                                 <BarChart3 className="w-4 h-4" /> {question.points} poin
                                             </span>
                                             <span className="flex items-center gap-1">
-                                                <Users className="w-4 h-4" /> {room.answerCount}/{room.participants.length} sudah jawab
+                                                <Users className="w-4 h-4" /> {room.answerCount}/{room.participants.length}{" "}
+                                                sudah jawab
                                             </span>
                                         </div>
                                     </div>
@@ -294,7 +415,6 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
                         )}
                     </div>
 
-                    {/* Leaderboard Sidebar */}
                     <div className="lg:w-72 space-y-4">
                         <div className="glass rounded-2xl p-4 space-y-3">
                             <div className="flex items-center gap-2 text-sm font-display font-bold text-foreground">
@@ -309,7 +429,11 @@ const Spectator = ({ params }: { params: Promise<{ code: string }> }) => {
                                         className="flex items-center gap-3 p-2 rounded-lg bg-secondary/50"
                                     >
                                         <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-secondary text-muted-foreground">
-                                            {i === 0 ? <Crown className="w-3.5 h-3.5 text-[hsl(var(--gold))]" /> : i + 1}
+                                            {i === 0 ? (
+                                                <Crown className="w-3.5 h-3.5 text-gold" />
+                                            ) : (
+                                                i + 1
+                                            )}
                                         </span>
                                         <span className="text-lg">{p.avatar}</span>
                                         <div className="flex-1 min-w-0">

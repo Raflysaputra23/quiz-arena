@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Zap, ArrowLeft, Users, Clock, Star, Play, Loader2, Globe, Lock, BookOpen } from "lucide-react";
+import { Search, ArrowLeft, Users, Clock, Play, Loader2, Globe, BookOpen, Eye } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuiz } from "@/hooks/useQuiz";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import LoadingScreen from "@/components/LoadingScreen";
 interface MarketplaceQuiz {
   id: string;
   title: string;
+  status: string;
   description: string | null;
   room_code: string;
   created_at: string;
@@ -27,20 +28,15 @@ interface MarketplaceQuiz {
 const Marketplace = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { createAndStartSession, joinRoom } = useQuiz();
+  const { joinRoom } = useQuiz();
   const [quizzes, setQuizzes] = useState<MarketplaceQuiz[]>([]);
   const [selectQuiz, setSelectQuiz] = useState<MarketplaceQuiz | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [name, setName] = useState("");
   const [joining, setJoining] = useState<boolean>(false);
-  const [startingId, setStartingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchQuizzes();
-  }, [user]);
-
-  const fetchQuizzes = async () => {
+  const fetchQuizzes = useCallback(async () => {
     setLoading(true);
     try {
       const supabase = createClient();
@@ -99,12 +95,13 @@ const Marketplace = () => {
         nameMap[p.id_user] = p.nama_lengkap;
       });
 
-      const quizFiltered = quizzesData.map((q) => ({ ...q, quiz_sessions: q.quiz_sessions.filter((quest: any) => quest.status === "waiting") }));
+      const quizFiltered = quizzesData.map((q) => ({ ...q, quiz_sessions: q.quiz_sessions.filter((quest: any) => quest.status === "waiting" || quest.status === "playing") }));
       setQuizzes([]);
       quizFiltered.forEach(q => {
         setQuizzes((prev) => [...prev, ...q.quiz_sessions.map((quest: any) => {
           return {
             id: q.id,
+            status: quest.status,
             title: q.title,
             description: q.description,
             room_code: quest.room_code,
@@ -122,25 +119,11 @@ const Marketplace = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const handlePlay = async (quiz: MarketplaceQuiz) => {
-    if (!user) {
-      toastError("Login dulu untuk memainkan quiz!");
-      router.push("/login");
-      return;
-    }
-    setStartingId(quiz.id);
-    try {
-      const newCode = await createAndStartSession(quiz.id, quiz.room_code, user.id);
-      router.push(`/lobby/${newCode}`);
-    } catch (err) {
-      console.log(err);
-      toastError("Gagal memulai quiz!");
-    } finally {
-      setStartingId(null);
-    }
-  };
+  useEffect(() => {
+    void fetchQuizzes();
+  }, [fetchQuizzes]);
 
   const filtered = useMemo(() => {
     return quizzes.filter(q =>
@@ -341,18 +324,28 @@ const Marketplace = () => {
                     </span>
                   </div>
 
-                  <Button
-                    className="w-full bg-gradient-primary cursor-pointer text-primary-foreground relative z-10"
-                    onClick={() => setSelectQuiz(quiz)}
-                    disabled={selectQuiz ? true : false}
-                  >
-                    {selectQuiz ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <Play className="w-4 h-4 mr-1" />
-                    )}
-                    Join Sekarang
-                  </Button>
+                  {quiz.status === "waiting" ? (
+                    <Button
+                      className="w-full bg-gradient-primary cursor-pointer text-primary-foreground relative z-10"
+                      onClick={() => setSelectQuiz(quiz)}
+                      disabled={selectQuiz ? true : false}
+                    >
+                      {selectQuiz ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Play className="w-4 h-4 mr-1" />
+                      )}
+                      Join Sekarang
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full bg-gradient-primary cursor-pointer text-primary-foreground relative z-10"
+                      onClick={() => router.push(`/spectator/${quiz.room_code}`)}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      Tonton
+                    </Button>
+                  )}
                 </motion.div>
               ))}
             </AnimatePresence>

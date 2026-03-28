@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, Dot, File } from "lucide-react";
+import { ArrowLeft, Dot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const sections = [
@@ -241,7 +241,6 @@ export default function TermsPage() {
                         </span>
                     </div>
 
-                    {/* Collapsible body — grid trick for smooth animation */}
                     <div
                         className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                             }`}
