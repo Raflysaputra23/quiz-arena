@@ -175,7 +175,7 @@ const CreateQuiz = () => {
                 formData.append('files', f);
             })
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/generate`, {
+            const res = await fetch(`/api/generate`, {
                 method: "POST",
                 body: formData
             });
@@ -218,7 +218,7 @@ const CreateQuiz = () => {
 
     const handleDeleteImage = async (imageUrl: string) => {
         setUploading(true)
-        const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/upload?url=${encodeURIComponent(imageUrl)}`, {
+        const res = await fetch(`/api/upload?url=${encodeURIComponent(imageUrl)}`, {
             method: 'DELETE'
         });
 
@@ -241,7 +241,7 @@ const CreateQuiz = () => {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const res = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN_URL}/api/upload`, {
+            const res = await fetch(`/api/upload`, {
                 method: "POST",
                 body: formData
             });
@@ -407,13 +407,13 @@ const CreateQuiz = () => {
 
     return (
         <div className="min-h-screen quiz-pattern overflow-hidden">
-            <header className="flex items-center gap-4 p-6 border-b border-border">
+            <header className="flex bg-primary/5 items-center gap-4 px-6 py-4 border-b border-border">
                 <Button variant="ghost" size="icon" onClick={() => router.push("/")}>
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                        <Zap className="w-4 h-4 text-primary-foreground" />
+                        <Plus className="w-4 h-4 text-primary-foreground" />
                     </div>
                     <span className="font-poppins font-bold text-foreground">Buat Quiz</span>
                 </div>

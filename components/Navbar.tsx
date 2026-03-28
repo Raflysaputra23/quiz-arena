@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/hooks/useAuth";
 import { AnimatePresence, motion } from "framer-motion";
-import { History, LogIn, LogOut, User, Zap } from "lucide-react";
+import { LogIn, LogOut, User, Zap } from "lucide-react";
 import { Button } from "./ui/button";
 import { useRouter } from "next/navigation";
 import { toastSuccess } from "@/lib/toast";
@@ -46,15 +46,11 @@ const Navbar = () => {
                             <Button
                                 variant="primary"
                                 className="flex items-center gap-2 cursor-pointer"
-                                onClick={() => router.push("/history")}
+                                onClick={() => router.push("/profile")}
                             >
-                                <History className="w-4 h-4" />
-                                <span className="hidden md:inline-block">Riwayat</span>
+                                <User className="w-4 h-4" />
+                                <span className="hidden md:inline-block">Profile</span>
                             </Button>
-                            <div className="flex items-center gap-2 bg-primary/10 border border-primary hover:bg-primary/50 rounded-lg px-3 py-2 transition">
-                                <User className="w-4 h-4 text-primary" />
-                                <span className="text-sm text-primary font-medium hidden md:inline-block">{profile.nama_lengkap}</span>
-                            </div>
                             <Button
                                 variant="ghost"
                                 size="icon"

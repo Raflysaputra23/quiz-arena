@@ -61,7 +61,6 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
     // Survival mode: track wrong answers
     const [survivalWrongCount, setSurvivalWrongCount] = useState(0);
     const [eliminated, setEliminated] = useState(false);
-
     const question = currentRoom?.quiz?.questions?.[currentRoom?.currentQuestionIndex ?? 0];
     const questionIdx = currentRoom?.currentQuestionIndex ?? 0;
     const totalQuestions = currentRoom?.quiz?.questions.length ?? 0;

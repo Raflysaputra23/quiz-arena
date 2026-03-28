@@ -9,12 +9,10 @@ interface Profile {
     id_user: string;
     nama_lengkap: string | null;
     avatar_url: string | null;
-    jurusan: string | null;
-    kelas: string | null;
-    bio: string | null;
     role: string | null;
     email: string | null;
     created_at: string | null;
+    terms_accept: boolean;
 }
 
 interface AuthContextType {

@@ -12,12 +12,12 @@ import FloatingIcons from "./FloatingIcons";
 
 
 const Hero = () => {
+    const { joinRoom, setCurrentRoom, clearParticipantSession, exitFullscreen } = useQuiz();
+    const { user, profile } = useAuth();
     const [code, setCode] = useState("");
     const [name, setName] = useState("");
     const [showJoin, setShowJoin] = useState(false);
     const [joining, setJoining] = useState(false);
-    const { joinRoom, setCurrentRoom, clearParticipantSession, exitFullscreen } = useQuiz();
-    const { user } = useAuth();
     const { scrollYProgress } = useScroll();
     const heroOpacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
     const heroScale = useTransform(scrollYProgress, [0, 0.2], [1, 0.95]);
@@ -30,6 +30,12 @@ const Hero = () => {
             await clearParticipantSession();
         })()
     }, [setCurrentRoom]);
+
+    useEffect(() => {
+        if(profile?.nama_lengkap) {
+            setName(profile.nama_lengkap);
+        }
+    }, [profile])
 
     const handleJoin = async () => {
         if (!code.trim()) { toastError("Masukkan kode game!"); return; }

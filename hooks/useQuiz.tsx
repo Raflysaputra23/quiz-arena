@@ -112,7 +112,6 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
     const [isHost, setIsHost] = useState(false);
     const [hostPlaying, setHostPlaying] = useState(false);
     const [efekSkill, setEfekSkill] = useState<EFEK_SKILL | null>(null);
-    const [skills, setSkills] = useState<string[]>([]);
     const skillQueueRef = useRef<any[]>([]);
     const isProcessingRef = useRef(false);
     const subscriptionsRef = useRef<any[]>([]);
@@ -343,7 +342,6 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             }, (payload) => {
                 const skill = payload.new as any;
                 if (!skill?.id_participant || !skill?.id_session) return;
-                setSkills((prev) => [...prev, skill.skill]);
                 skillQueueRef.current.push(skill);
                 processQueue();
             }).subscribe();

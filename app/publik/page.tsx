@@ -27,7 +27,7 @@ interface MarketplaceQuiz {
 
 const Marketplace = () => {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { joinRoom } = useQuiz();
   const [quizzes, setQuizzes] = useState<MarketplaceQuiz[]>([]);
   const [selectQuiz, setSelectQuiz] = useState<MarketplaceQuiz | null>(null);
@@ -35,6 +35,12 @@ const Marketplace = () => {
   const [search, setSearch] = useState("");
   const [name, setName] = useState("");
   const [joining, setJoining] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (profile?.nama_lengkap) {
+      setName(profile.nama_lengkap);
+    }
+  }, [profile]);
 
   const fetchQuizzes = useCallback(async () => {
     setLoading(true);
@@ -158,17 +164,15 @@ const Marketplace = () => {
 
   return (
     <div className="min-h-screen quiz-pattern">
-      <header className="sticky top-0 z-50 glass border-b border-border/50">
-        <div className="max-w-6xl mx-auto flex items-center gap-4 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Button variant={'ghost'} size={'icon'} onClick={() => router.push("/")} className="cursor-pointer">
-              <ArrowLeft className="w-6! h-6!" />
-            </Button>
-            <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-              <Globe className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-poppins font-bold text-foreground">Quiz Publik</span>
+      <header className="flex bg-primary/5 items-center gap-4 px-6 py-4 border-b border-border">
+        <Button variant="ghost" size="icon" className="cursor-pointer" onClick={() => router.push("/")}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
+            <Globe className="w-4 h-4 text-primary-foreground" />
           </div>
+          <span className="font-poppins font-bold text-foreground">Publik</span>
         </div>
       </header>
 
@@ -233,7 +237,7 @@ const Marketplace = () => {
         }
       </AnimatePresence>
 
-      <div className="max-w-6xl mx-auto p-6 space-y-8">
+      <div className="max-w-6xl mx-auto p-6 space-y-8 mt-8 py-8">
         {/* Hero */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -253,9 +257,9 @@ const Marketplace = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="max-w-md mx-auto"
+          className="max-w-md mx-auto sticky top-5 z-40"
         >
-          <div className="relative">
+          <div>
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               placeholder="Cari quiz berdasarkan judul, deskripsi, atau pembuat..."
