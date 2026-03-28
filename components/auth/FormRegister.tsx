@@ -7,6 +7,7 @@ import ButtonForm from '../ButtonForm'
 import Link from 'next/link'
 import { formRegisterValidation } from '@/lib/formValidation'
 import { useRouter } from 'next/navigation'
+import { Checkbox } from '../ui/checkbox'
 
 const FormRegister = () => {
     const [namaLengkap, setNamaLengkap] = useState<string>('');
@@ -15,6 +16,7 @@ const FormRegister = () => {
     const [confirmPassword, setConfirmPassword] = useState<string>('');
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
+    const [termsAccept, setTermsAccept] = useState<boolean>(false);
     const [state, formAction] = useActionState(formRegisterValidation, null);
     const router = useRouter();
 
@@ -25,6 +27,7 @@ const FormRegister = () => {
         setEmail('');
         setPassword('');
         setConfirmPassword('');
+        setTermsAccept(false);
     }
 
     useEffect(() => {
@@ -60,13 +63,28 @@ const FormRegister = () => {
                     {showPassword ? <Eye onClick={() => setShowPassword(false)} className='w-5 h-5 absolute right-2 bottom-5' /> : <EyeClosed onClick={() => setShowPassword(true)} className='w-5 h-5 absolute right-2 bottom-5' />}
                     <p className='absolute bottom-0 left-0.5 text-sm text-destructive'>{state && state.error?.password}</p>
                 </div>
-                <div className="space-y-2 py-3 relative mb-2">
+                <div className="space-y-2 py-3 relative">
                     <Label className="after:-ml-0.5 after:text-destructive after:content-['*']">Confirm Password</Label>
                     <Input type={showConfirmPassword ? "text" : "password"} className='pr-9 bg-primary/5' value={confirmPassword} name="confirmPassword" onChange={e => setConfirmPassword(e.target.value)} required placeholder="••••••••" />
                     {showConfirmPassword ? <Eye onClick={() => setShowConfirmPassword(false)} className='w-5 h-5 absolute right-2 bottom-5' /> : <EyeClosed onClick={() => setShowConfirmPassword(true)} className='w-5 h-5 absolute right-2 bottom-5' />}
                     <p className='absolute bottom-0 left-0.5 text-sm text-destructive'>{state && state.error?.confirmPassword?.[0]}</p>
                 </div>
-                <ButtonForm>
+                <div className="mb-4">
+                    <Label className="flex items-start gap-2 font-normal">
+                        <Checkbox name='termsAccept' checked={termsAccept} onCheckedChange={() => setTermsAccept(!termsAccept)} />
+                        <p className="text-xs text-muted-foreground">
+                            Dengan mendaftar, saya menyetujui{" "}
+                            <Link href={'/terms'} className="underline inline text-primary">
+                                Syarat & Ketentuan{" "}
+                            </Link>
+                            dan{" "}
+                            <Link href={'/privacy'} className="underline text-primary">
+                                Kebijakan Privasi
+                            </Link>
+                        </p>
+                    </Label>
+                </div>
+                <ButtonForm termsAccept={termsAccept}>
                     Daftar
                 </ButtonForm>
             </form>

@@ -50,12 +50,11 @@ export const formLoginValidation = async (
 };
 
 export const formRegisterValidation = async (
-  prev: unknown,
+  prev: unknown,  
   formData: FormData,
 ) => {
   const supabase = await createClient();
   const data = Object.fromEntries(formData.entries());
-  console.log(formData);
   const validasi = formRegisterSchema.safeParse(data);
 
   if (!validasi.success) {
@@ -74,7 +73,8 @@ export const formRegisterValidation = async (
       password,
       options: {
         data: {
-          full_name: namaLengkap,
+          nama_lengkap: namaLengkap,
+          termsAccept: true
         },
         emailRedirectTo: `${process.env.NEXT_PUBLIC_DOMAIN_URL}/`,
       },
