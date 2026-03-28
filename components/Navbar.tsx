@@ -96,7 +96,7 @@ const Navbar = () => {
                             onClick={(e) => e.stopPropagation()}
                             className="glass rounded-3xl p-6 max-w-lg w-full space-y-5 max-h-[85vh]"
                         >
-                            <h1 className="text-2xl font-bold font-poppins">Hapus</h1>
+                            <h1 className="text-2xl font-bold font-poppins">Keluar</h1>
                             <p className="text-muted-foreground">Anda yakin ingin keluar dari akun ini?</p>
                             <div className="flex items-center justify-end gap-1">
                                 <Button
