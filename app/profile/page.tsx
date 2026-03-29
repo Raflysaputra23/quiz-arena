@@ -11,10 +11,11 @@ import LoadingScreen from "@/components/LoadingScreen";
 import QuizHistory from "@/components/QuizHistory";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, profile, loading: authLoading, updateProfile } = useAuth();
+  const { user, profile, updateLog, loading: authLoading, updateProfile } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState<boolean>(false);
   const [search, setSearch] = useState<string>("");
@@ -44,12 +45,12 @@ export default function ProfilePage() {
     }
     setUploading(true);
     try {
-      if(profile?.avatar_url) {
+      if (profile?.avatar_url) {
         const res = await fetch(`/api/upload?url=${encodeURIComponent(profile.avatar_url)}`, {
           method: "DELETE"
         });
-
-        if(res.status !== 200) throw Error("Gagal hapus gambar");
+        await updateLog({ type: "quiz", action: "Gambar gagal dihapus", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+        if (res.status !== 200) throw Error("Gagal hapus gambar");
       }
 
       const formData = new FormData();
@@ -58,6 +59,7 @@ export default function ProfilePage() {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const data = await res.json();
       if (!res.ok) {
+        await updateLog({ type: "quiz", action: "Gagal mengupload gambar", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
         toastError(data?.message ?? "Gagal mengunggah foto");
         return;
       }
@@ -66,6 +68,7 @@ export default function ProfilePage() {
         toastError("Gagal menyimpan foto profil");
         return;
       }
+      await updateLog({ type: "quiz", action: "Berhasil mengupload gambar", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
       toastSuccess("Foto profil diperbarui");
     } catch {
       toastError("Gagal mengunggah foto");
@@ -192,6 +195,13 @@ export default function ProfilePage() {
               </h2>
               <p className="text-sm text-muted-foreground mt-1">Quiz dan sesi yang pernah kamu buat</p>
             </div>
+            {profile?.role === "admin" &&
+              <Button variant={'primary'} asChild>
+                <Link href={'/admin'}>
+                  Admin
+                </Link>
+              </Button>
+            }
           </div>
           <motion.div
             initial={{ opacity: 0, y: 10 }}

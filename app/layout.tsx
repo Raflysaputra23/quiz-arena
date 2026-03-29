@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
 import { QuizProvider } from "@/hooks/useQuiz";
+import { AdminProvider } from "@/hooks/useAdmin";
 
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700"],
@@ -98,8 +99,10 @@ export default function RootLayout({
       >
         <AuthProvider>
           <QuizProvider>
-            <Toaster />
-            {children}
+            <AdminProvider>
+              <Toaster />
+              {children}
+            </AdminProvider>
           </QuizProvider>
         </AuthProvider>
       </body>

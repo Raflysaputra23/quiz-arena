@@ -36,7 +36,7 @@ interface LocalQuestion {
 
 const CreateQuiz = () => {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, profile, updateLog } = useAuth();
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [questions, setQuestions] = useState<LocalQuestion[]>([]);
@@ -79,7 +79,7 @@ const CreateQuiz = () => {
     }, [user, router]);
 
     const manageFile = async (file: File) => {
-         if (file.size > (5 * 1024 * 1024)) { toastError("Ukuran file maksimal 5MB!"); return; }
+        if (file.size > (5 * 1024 * 1024)) { toastError("Ukuran file maksimal 5MB!"); return; }
         const allowedType = ['application/pdf', 'image/jpeg', 'image/png', 'text/csv'];
         if (!allowedType.includes(file.type)) { toastError("Tipe file tidak diizinkan!"); return; }
         const type = file.type.startsWith('application/pdf') ? 'PDF' : file.type.startsWith('image/') ? 'IMG' : 'CSV';
@@ -185,6 +185,7 @@ const CreateQuiz = () => {
             const data = JSON.parse(extractJSON(response.res));
             if (!title.trim() && data.title) setTitle(data.title);
             if (!description.trim() && data.description) setDescription(data.description);
+            await updateLog({ type: "quiz", action: "AI berhasil generate", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
 
             const newQuestions: LocalQuestion[] = (data.questions || []).map((q: any) => {
                 const options: LocalOption[] = (q.options || []).map((op: any, i: number) => ({
@@ -210,6 +211,7 @@ const CreateQuiz = () => {
             resetFormAI();
         } catch (err) {
             console.log(err);
+            await updateLog({ type: "quiz", action: "AI gagal generate", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
             toastError("Gagal generate quiz, silahkan coba lagi!");
         } finally {
             setAiGenerating(false);
@@ -250,11 +252,13 @@ const CreateQuiz = () => {
                 toastError("Gagal mengupload gambar!");
                 return;
             }
+            await updateLog({ type: "quiz", action: "Upload gambar berhasil", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
             const data = await res.json();
             const publicUrl = data.url;
             setQImageUrl(publicUrl);
             toastSuccess("Gambar berhasil diupload!");
         } catch {
+            await updateLog({ type: "quiz", action: "Gagal upload gambar", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
             toastError("Gagal mengupload gambar!");
         } finally {
             setUploading(false);

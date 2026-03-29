@@ -53,7 +53,7 @@ interface QuizHistory {
 
 const QuizHistory = memo(({ search }: { search: string }) => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile, updateLog } = useAuth();
   const [quizzes, setQuizzes] = useState<QuizHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStart, setLoadingStart] = useState(false);
@@ -140,10 +140,12 @@ const QuizHistory = memo(({ search }: { search: string }) => {
     const supabase = supaRef.current;
     const { error } = await supabase.from("quizzes").delete().eq("id", id);
     if (error) {
+      await updateLog({ type: "quiz", action: "Gagal menghapus quiz", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
       toastError("Gagal menghapus quiz");
       return;
     }
     toastSuccess("Quiz dihapus");
+    await updateLog({ type: "quiz", action: "Berhasil menghapus quiz", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
     setQuizzes((prev) => prev.filter((q) => q.id !== id));
   };
 
@@ -163,7 +165,10 @@ const QuizHistory = memo(({ search }: { search: string }) => {
       allowed_skill: powerUpsJson,
       status: "waiting",
     });
+    await updateLog({ type: "quiz", action: "Berhasil membuat sesi quiz", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
+
     if (error) {
+      await updateLog({ type: "quiz", action: "Gagal membuat quiz", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
       toastError("Gagal membuat sesi");
       setLoadingStart(false);
       return;

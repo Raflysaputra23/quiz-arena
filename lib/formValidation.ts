@@ -29,12 +29,27 @@ export const formLoginValidation = async (
     });
     if (error) throw error;
 
+    await supabase.from("logs").insert({
+      type: "security",
+      action: `User berhasil login`,
+      user: data.nama_lengkap ?? "uknown",
+      severity: "info",
+    });
+
     return {
       message: "Login berhasil!",
       success: true,
     };
   } catch (error) {
     if (error instanceof AuthError) {
+      // ADD LOG
+      await supabase.from("logs").insert({
+        type: "security",
+        action: `User gagal login: ${error.message}`,
+        user: data.nama_lengkap ?? "uknown",
+        severity: "danger",
+      });
+
       return {
         message: error.message,
         success: false,
@@ -50,7 +65,7 @@ export const formLoginValidation = async (
 };
 
 export const formRegisterValidation = async (
-  prev: unknown,  
+  prev: unknown,
   formData: FormData,
 ) => {
   const supabase = await createClient();
@@ -74,7 +89,7 @@ export const formRegisterValidation = async (
       options: {
         data: {
           nama_lengkap: namaLengkap,
-          termsAccept: true
+          termsAccept: true,
         },
         emailRedirectTo: `${process.env.NEXT_PUBLIC_DOMAIN_URL}/`,
       },
@@ -82,15 +97,30 @@ export const formRegisterValidation = async (
 
     if (error) throw error;
 
+    // ADD LOG
+    await supabase.from("logs").insert({
+      type: "security",
+      action: `User berhasil register`,
+      user: data.nama_lengkap ?? "uknown",
+      severity: "info",
+    });
+
     return {
-        message: "Register berhasil!",
-        success: true
-    }
+      message: "Register berhasil!",
+      success: true,
+    };
   } catch (error) {
-    console.log(error);
+    // ADD LOG
+    await supabase.from("logs").insert({
+      type: "security",
+      action: `User gagal register: ${error}`,
+      user: data.nama_lengkap ?? "uknown",
+      severity: "danger",
+    });
+
     return {
-        message: "Register gagal",
-        success: false
-    }
+      message: "Register gagal",
+      success: false,
+    };
   }
 };

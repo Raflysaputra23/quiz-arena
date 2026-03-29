@@ -4,14 +4,18 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/supabase/client";
+import { Logs } from "./useAdmin";
+import { toastError } from "@/lib/toast";
+import { useRouter } from "next/navigation";
 
-interface Profile {
+export interface Profile {
     id_user: string;
     nama_lengkap: string | null;
     avatar_url: string | null;
     role: string | null;
     email: string | null;
-    created_at: string | null;
+    created_at: string;
+    status: "active" | "suspend";
     terms_accept: boolean;
 }
 
@@ -25,6 +29,7 @@ interface AuthContextType {
     signOut: () => Promise<void>;
     signInWithGoogle: () => Promise<{ error: any }>;
     updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
+    updateLog: (logs: Partial<Logs>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -34,6 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [session, setSession] = useState<Session | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
     const supabaseRef = useRef(createClient());
 
     const fetchProfile = async (userId: string) => {
@@ -49,6 +55,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setProfile(null);
         }
     };
+
+    useEffect(() => {
+        (async () => {
+            if (profile && profile.status === "suspend") {
+                await signOut();
+                toastError("Akun anda kena suspend!");
+                router.push("/");
+            }
+        })()
+    }, [profile]);
 
 
     useEffect(() => {
@@ -135,8 +151,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error };
     };
 
+    const updateLog = async (logs: Partial<Logs>) => {
+        const supabase = supabaseRef.current;
+        try {
+            const { error } = await supabase
+                .from("logs")
+                .insert(logs)
+            if (error) throw Error("Gagal menambah log");
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
     return (
-        <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, signInWithGoogle, updateProfile }}>
+        <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, signInWithGoogle, updateProfile, updateLog }}>
             {children}
         </AuthContext.Provider>
     );
