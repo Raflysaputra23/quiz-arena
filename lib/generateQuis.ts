@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { createClient } from "@/supabase/server";
+import { Logs } from "@/types/global";
 import { GoogleGenAI } from "@google/genai";
 
 const RafAI = new GoogleGenAI({
@@ -47,6 +49,10 @@ anda harus menjawab sesuai dengan perintah pengguna ya dan saya ingatkan lagi an
 `;
 
 export const generateQuis = async (prompt: string, files: File[]) => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims;
+
   try {
     let contents: any = "";
     if (files.length > 0) {
@@ -158,7 +164,12 @@ Anda adalah AI Spesialis Pembuat Kuis (Quiz Generator) yang cerdas dan presisi. 
     });
     return response.text;
   } catch (error) {
-    console.log("Generate Quiz Gagal:", error);
+    await supabase.from("logs").insert({
+      type: "quiz",
+      action: `Generate Quiz Gagal: ${error}`,
+      user: user?.email ?? "uknown",
+      severity: "danger",
+    } as Logs);
     throw new Error("Generate Quiz Gagal!");
   }
 };

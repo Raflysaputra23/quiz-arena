@@ -3,14 +3,15 @@
 import { ReactElement, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, CircleSlash2, CircleStar, FileQuestion, History, Key, Logs, Search, Settings2, ShieldCheck, Timer, TriangleAlert, User, Zap } from "lucide-react";
-import { Logs as Logss, Users, useAdmin } from "@/hooks/useAdmin";
+import { ArrowLeft, Calendar, CircleSlash2, CircleStar, FileQuestion, History, Key, Logs, RefreshCcw, Search, Settings2, ShieldCheck, Timer, TriangleAlert, User, Zap } from "lucide-react";
+import { Users, useAdmin } from "@/hooks/useAdmin";
 import LoadingScreen from "@/components/LoadingScreen";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createClient } from "@/supabase/client";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
+import { Logs as Logss } from "@/types/global";
 
 // ── Mock Data ──────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ const stats: TypeStats[] = [
     { label: "Total Pengguna", value: 6, icon: <User className="mb-2 text-primary w-9 h-9" />, color: "blue" },
     { label: "Total Quiz", value: 3, icon: <Zap className="mb-2 text-violet-500 w-9 h-9" />, color: "violet" },
     { label: "Akun Suspended", value: 1, icon: <CircleSlash2 className="mb-2 text-destructive w-9 h-9" />, color: "red" },
-    { label: "Perlu Review", value: 2, icon: <TriangleAlert className="mb-2 text-amber-500 w-9 h-9" />, color: "amber" },
+    { label: "Total Logs", value: 2, icon: <Logs className="mb-2 text-amber-500 w-9 h-9" />, color: "amber" },
 ];
 
 const statStyle = {
@@ -82,8 +83,8 @@ type StatColor = "blue" | "violet" | "red" | "amber";
 
 // ══════════════════════════════════════════════════════════
 export default function AdminPage() {
-    const { quiz, users, logs, loading, loadingQuiz, loadingUser, loadQuiz, loadUsers } = useAdmin();
-    const { profile, updateLog } = useAuth();
+    const { quiz, users, logs, loading, loadingQuiz, loadingUser, loadingLogs, loadQuiz, loadUsers, loadLogs, updateLog } = useAdmin();
+    const { profile } = useAuth();
     const [activeTab, setActiveTab] = useState("users");
     const [expandedQuiz, setExpandedQuiz] = useState<string | null>(null);
     const [userSearch, setUserSearch] = useState("");
@@ -107,22 +108,34 @@ export default function AdminPage() {
         return users.filter(
             (u: Users) =>
                 u?.nama_lengkap?.toLowerCase().includes(userSearch.toLowerCase()) ||
-                u?.email?.toLowerCase().includes(userSearch.toLowerCase()))
+                u?.email?.toLowerCase().includes(userSearch.toLowerCase())).sort((a, b) => {
+                    const ta = new Date(a.created_at.replace(" ", "T")).getTime();
+                    const tb = new Date(b.created_at.replace(" ", "T")).getTime();
+                    return tb - ta;
+                });
     }, [users, userSearch]);
 
     const filteredQuizzes = useMemo(() => {
-        return quiz.filter((q) => q.title.toLowerCase().includes(quizSearch.toLowerCase()))
+        return quiz.filter((q) => q.title.toLowerCase().includes(quizSearch.toLowerCase())).sort((a, b) => {
+            const ta = new Date(a.created_at.replace(" ", "T")).getTime();
+            const tb = new Date(b.created_at.replace(" ", "T")).getTime();
+            return tb - ta;
+        })
     }, [quiz, quizSearch]);
 
     const filteredLogs = useMemo(() => {
-        return logFilter === "all" ? logs : logs.filter((l: Logss) => l.severity === logFilter || l.type === logFilter);
+        return logFilter === "all" ? logs : logs.filter((l: Logss) => l.severity === logFilter || l.type === logFilter).sort((a: Logss, b: Logss) => {
+            const ta = new Date(a.time.replace(" ", "T")).getTime();
+            const tb = new Date(b.time.replace(" ", "T")).getTime();
+            return tb - ta;
+        });
     }, [logs, logFilter]);
 
     const stat = useMemo(() => [
         { ...stats[0], value: users.length },
         { ...stats[1], value: quiz.length },
         { ...stats[2], value: users.filter(u => u.status === "suspend").length },
-        { ...stats[3], value: quiz.length }
+        { ...stats[3], value: logs.length }
     ], [users, quiz]);
 
     const toggleSuspend = async (id: string, status: "active" | "suspend") => {
@@ -274,14 +287,19 @@ export default function AdminPage() {
                 {activeTab === "users" && (
                     <div className="space-y-4">
                         {/* Search */}
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">🔍</span>
-                            <input
-                                value={userSearch}
-                                onChange={(e) => setUserSearch(e.target.value)}
-                                placeholder="Cari pengguna berdasarkan nama atau email..."
-                                className="w-full bg-[#0d1520] border border-white/[0.07] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all"
-                            />
+                        <div className="flex items-center gap-4">
+                            <div className="flex-1 relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">🔍</span>
+                                <input
+                                    value={userSearch}
+                                    onChange={(e) => setUserSearch(e.target.value)}
+                                    placeholder="Cari pengguna berdasarkan nama atau email..."
+                                    className="w-full bg-[#0d1520] border border-white/[0.07] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all"
+                                />
+                            </div>
+                            <Button disabled={loadingUser} onClick={async () => await loadUsers()} className="ml-auto" variant={'primary'}>
+                                <RefreshCcw className={`${loadingUser && 'animate-spin'}`} /> <span className="hidden sm:inline-block">Refresh</span>
+                            </Button>
                         </div>
 
                         {/* Table header */}
@@ -432,40 +450,54 @@ export default function AdminPage() {
                                     {f.label}
                                 </button>
                             ))}
+                            <Button disabled={loadingLogs} onClick={async () => await loadLogs()} className="ml-auto" variant={'primary'}>
+                                <RefreshCcw className={`${loadingLogs && 'animate-spin'}`} /> <span className="hidden sm:inline-block">Refresh</span>
+                            </Button>
                         </div>
 
                         {/* Log entries */}
                         <div className="bg-primary/1 border border-white/6 rounded-2xl overflow-hidden">
-                            {filteredLogs.map((log, i) => {
-                                const s = severityColors[log.severity as SeverityColors];
-                                return (
-                                    <div
-                                        key={log.id}
-                                        className={`flex items-start gap-4 px-5 py-3.5 ${s.row} ${i !== 0 ? "border-t border-white/4" : ""
-                                            } transition-all hover:bg-white/2`}
-                                    >
-                                        {/* severity dot */}
-                                        <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0">
-                                            <div className={`w-2 h-2 rounded-full ${s.dot} shadow-[0_0_6px_currentColor]`} />
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="text-base">{logTypeIcon[log.type as LogTypeIcon]}</span>
-                                                <span className="text-sm font-medium text-white">{log.action}</span>
+                            {loadingLogs ?
+                                <div className="text-center py-16">
+                                    <motion.div
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                        className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"
+                                    />
+                                    <p className="text-muted-foreground mt-4 animate-pulse">Memuat Logs...</p>
+                                </div>
+                                :
+                                filteredLogs.map((log, i) => {
+                                    const s = severityColors[log.severity as SeverityColors];
+                                    return (
+                                        <div
+                                            key={log.id}
+                                            className={`flex items-start gap-4 px-5 py-3.5 ${s.row} ${i !== 0 ? "border-t border-white/4" : ""
+                                                } transition-all hover:bg-white/2`}
+                                        >
+                                            {/* severity dot */}
+                                            <div className="flex flex-col items-center gap-1 pt-0.5 shrink-0">
+                                                <div className={`w-2 h-2 rounded-full ${s.dot} shadow-[0_0_6px_currentColor]`} />
                                             </div>
-                                            <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                                <p className="flex items-center gap-1 text-xs text-muted-foreground"><User className="w-3 h-3" /> {log.user}</p>
-                                                {/* <p className="flex items-center gap-1 text-xs text-primary"><Globe2 className="w-3 h-3" /> <span className="text-muted-foreground">{log.ip}</span></p> */}
+
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="text-base">{logTypeIcon[log.type as LogTypeIcon]}</span>
+                                                    <span className="text-sm font-medium text-white">{log.action}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                                    <p className="flex items-center gap-1 text-xs text-muted-foreground"><User className="w-3 h-3" /> {log.user}</p>
+                                                    {/* <p className="flex items-center gap-1 text-xs text-primary"><Globe2 className="w-3 h-3" /> <span className="text-muted-foreground">{log.ip}</span></p> */}
+                                                </div>
+                                            </div>
+
+                                            <div className="text-[0.72rem] text-muted-foreground shrink-0 text-right">
+                                                {new Date(log.time).toLocaleDateString()}
                                             </div>
                                         </div>
+                                    );
+                                })}
 
-                                        <div className="text-[0.72rem] text-muted-foreground shrink-0 text-right">
-                                            {new Date(log.time).toLocaleDateString()}
-                                        </div>
-                                    </div>
-                                );
-                            })}
                             {filteredLogs.length === 0 && (
                                 <div className="text-center py-16 text-muted-foreground">
                                     <div className="text-4xl mb-3"><Logs className="w-8 h-8 mx-auto" /></div>
@@ -479,15 +511,20 @@ export default function AdminPage() {
                 {/* ── TAB: QUIZZES ── */}
                 {activeTab === "quizzes" && (
                     <div className="space-y-4">
-                        {/* Search */}
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 text-sm">🔍</span>
-                            <input
-                                value={quizSearch}
-                                onChange={(e) => setQuizSearch(e.target.value)}
-                                placeholder="Cari quiz berdasarkan judul atau pembuat..."
-                                className="w-full bg-[#0d1520] border border-white/[0.07] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all"
-                            />
+                        <div className="flex items-center gap-4">
+                            {/* Search */}
+                            <div className="flex-1 relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 text-sm">🔍</span>
+                                <input
+                                    value={quizSearch}
+                                    onChange={(e) => setQuizSearch(e.target.value)}
+                                    placeholder="Cari quiz berdasarkan judul atau pembuat..."
+                                    className="w-full bg-[#0d1520] border border-white/[0.07] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 transition-all"
+                                />
+                            </div>
+                            <Button disabled={loadingQuiz} onClick={async () => await loadQuiz()} className="ml-auto" variant={'primary'}>
+                                <RefreshCcw className={`${loadingQuiz && 'animate-spin'}`} /> <span className="hidden sm:inline-block">Refresh</span>
+                            </Button>
                         </div>
 
                         {loadingQuiz ?

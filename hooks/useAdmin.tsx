@@ -5,16 +5,9 @@ import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { Option } from "./useQuiz";
 import { Profile } from "./useAuth";
 import { createClient } from "@/supabase/client";
+import { Logs } from "@/types/global";
 
 
-export interface Logs {
-    id: string;
-    type: "auth" | "quiz" | "security" | "admin";
-    action: string;
-    user: string;
-    time: Date;
-    severity: "warning" | "info" | "danger";
-}
 
 export type Users = {
     quizzes: number
@@ -41,7 +34,7 @@ export interface Quizzes {
     description: string;
     jumlah_soal: number;
     jumlah_sesi: number;
-    created_at: Date;
+    created_at: string;
     questions: QuestionOptions[];
 }
 
@@ -52,8 +45,11 @@ interface AdminContextType {
     loading: boolean;
     loadingQuiz: boolean;
     loadingUser: boolean;
+    loadingLogs: boolean;
     loadQuiz: () => void;
     loadUsers: () => void;
+    loadLogs: () => void;
+    updateLog: (logs: Partial<Logs>) => void;
 }
 
 const AdminContext = createContext<AdminContextType | null>(null);
@@ -77,7 +73,11 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
                 .select("*, quizzes(count)");
             if (error) throw Error("User gagal diambil");
             const filtered = data.map(d => ({ ...d, quizzes: d.quizzes.length > 0 ? d.quizzes[0].count : 0 }));
-            setUsers(filtered as Users[]);
+            setUsers(filtered.sort((a, b) => {
+                const ta = new Date(a.created_at.replace(" ", "T")).getTime();
+                const tb = new Date(b.created_at.replace(" ", "T")).getTime();
+                return tb - ta;
+            }) as Users[]);
         } catch (error) {
             setUsers([]);
             console.log(error);
@@ -94,7 +94,11 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
                 .from("logs")
                 .select("*");
             if (error) throw Error("Logs gagal diambil");
-            setLogs(data as Logs[]);
+            setLogs(data.sort((a, b) => {
+                const ta = new Date(a.time.replace(" ", "T")).getTime();
+                const tb = new Date(b.time.replace(" ", "T")).getTime();
+                return tb - ta;
+            }) as Logs[]);
         } catch (error) {
             setLogs([]);
             console.log(error);
@@ -114,7 +118,6 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
             if (error) throw Error("Question gagal diambil");
             const sesi = new Map();
             const dataQuiz: Quizzes[] = [];
-            console.log(data);
             data.forEach((dq) => {
                 if (!sesi.has(dq.quiz_id)) {
                     sesi.set(dq.quiz_id, 1);
@@ -147,12 +150,28 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
                     if (found) found.jumlah_sesi++;
                 }
             });
-            setQuiz(dataQuiz as Quizzes[]);
+            setQuiz(dataQuiz.sort((a, b) => {
+                const ta = new Date(a.created_at.replace(" ", "T")).getTime();
+                const tb = new Date(b.created_at.replace(" ", "T")).getTime();
+                return tb - ta;
+            }) as Quizzes[]);
         } catch (error) {
             setQuiz([]);
             console.log(error);
         } finally {
             setLoadingQuiz(false);
+        }
+    }
+
+    const updateLog = async (logs: Partial<Logs>) => {
+        const supabase = supaRef.current;
+        try {
+            const { error } = await supabase
+                .from("logs")
+                .insert(logs)
+            if (error) throw error.message;
+        } catch (error) {
+            console.log(error);
         }
     }
 
@@ -168,11 +187,11 @@ export const AdminProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         if (!loadingLogs && !loadingQuiz && !loadingUser) {
             setLoading(false);
-        } 
+        }
     }, [loadingLogs, loadingQuiz, loadingUser])
 
     return (
-        <AdminContext.Provider value={{ users, quiz, logs, loading, loadingQuiz, loadingUser, loadQuiz, loadUsers }}>
+        <AdminContext.Provider value={{ users, quiz, logs, loading, loadingQuiz, loadingUser, loadingLogs, loadQuiz, loadUsers, loadLogs, updateLog }}>
             {children}
         </AdminContext.Provider>
     )

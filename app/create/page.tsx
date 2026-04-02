@@ -16,6 +16,7 @@ import Image from "next/image";
 import { FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
+import { useAdmin } from "@/hooks/useAdmin";
 
 interface LocalOption {
     id: string;
@@ -35,8 +36,9 @@ interface LocalQuestion {
 }
 
 const CreateQuiz = () => {
+    const { user, profile } = useAuth();
+    const { updateLog } = useAdmin();
     const router = useRouter();
-    const { user, profile, updateLog } = useAuth();
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [questions, setQuestions] = useState<LocalQuestion[]>([]);
@@ -165,7 +167,6 @@ const CreateQuiz = () => {
         setAiGenerating(true);
 
         try {
-
             // FORMDATA
             const formData = new FormData();
             formData.append('topik', aiTopic.trim());
@@ -173,14 +174,15 @@ const CreateQuiz = () => {
             formData.append('level', aiDifficulty);
             file.forEach((f: File) => {
                 formData.append('files', f);
-            })
+            });
 
             const res = await fetch(`/api/generate`, {
                 method: "POST",
                 body: formData
             });
 
-            if (res.status !== 200) { toastError("RafAI tidak merespon!"); return; }
+            if (res.status !== 200) throw Error("RafAI tidak merespon!");
+            
             const response = await res.json();
             const data = JSON.parse(extractJSON(response.res));
             if (!title.trim() && data.title) setTitle(data.title);
@@ -209,35 +211,44 @@ const CreateQuiz = () => {
             setShowAiPanel(false);
             setShowManualPanel(true);
             resetFormAI();
-        } catch (err) {
-            console.log(err);
-            await updateLog({ type: "quiz", action: "AI gagal generate", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
-            toastError("Gagal generate quiz, silahkan coba lagi!");
+        } catch (error) {
+            if(error instanceof Error) {
+                toastError(`${error.message}, silahkan coba lagi!`);
+            } else {
+                await updateLog({ type: "quiz", action: `Terjadi kesalahan AI gagal generate: ${error}`, user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+            }
         } finally {
             setAiGenerating(false);
         }
     };
 
     const handleDeleteImage = async (imageUrl: string) => {
-        setUploading(true)
-        const res = await fetch(`/api/upload?url=${encodeURIComponent(imageUrl)}`, {
-            method: 'DELETE'
-        });
+        setUploading(true);
+        try {
+            const res = await fetch(`/api/upload?url=${encodeURIComponent(imageUrl)}`, {
+                method: 'DELETE'
+            });
 
-        if (res.status !== 200) {
-            toastError("Gagal menghapus gambar!");
-            return;
+            if (res.status !== 200) throw Error("Gambar gagal dihapus!");
+            toastSuccess("Gambar berhasil dihapus!");
+            setQImageUrl("");
+        } catch (error) {
+            if (error instanceof Error) {
+                toastError(error.message);
+            } else {
+                await updateLog({ type: "quiz", action: `Terjadi kesalahan gambar gagal diupload: ${error}`, user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+                toastError("Terjadi kesalahan");
+            }
+        } finally {
+            setUploading(false);
         }
-        toastSuccess("Gambar berhasil dihapus!");
-        setQImageUrl("");
-        setUploading(false);
     }
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (!file) { toastError("File tidak ditemukan!"); return; }
-        if (!file.type.startsWith("image/")) { toastError("File harus berupa gambar!"); return; }
-        if (file.size > 5 * 1024 * 1024) { toastError("Ukuran file maksimal 5MB!"); return; }
+        if (!file) throw Error("File tidak ditemukan!");
+        if (!file.type.startsWith("image/")) throw Error("File harus berupa gambar!"); 
+        if (file.size > 5 * 1024 * 1024) throw Error("Ukuran file maksimal 5MB!"); 
 
         setUploading(true);
         try {
@@ -248,18 +259,20 @@ const CreateQuiz = () => {
                 body: formData
             });
 
-            if (res.status !== 200) {
-                toastError("Gagal mengupload gambar!");
-                return;
-            }
-            await updateLog({ type: "quiz", action: "Upload gambar berhasil", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
+            if (res.status !== 200) throw Error("Gagal mengupload gambar!");
+
             const data = await res.json();
             const publicUrl = data.url;
             setQImageUrl(publicUrl);
+            await updateLog({ type: "quiz", action: "Berhasil mengupload gambar!", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
             toastSuccess("Gambar berhasil diupload!");
-        } catch {
-            await updateLog({ type: "quiz", action: "Gagal upload gambar", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
-            toastError("Gagal mengupload gambar!");
+        } catch (error) {
+            if (error instanceof Error) {
+                toastError(error.message);
+            } else {
+                await updateLog({ type: "quiz", action: `Terjadi kesalahan gambar gagal diupload: ${error}`, user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+                toastError("Terjadi kesalahan!");
+            }
         } finally {
             setUploading(false);
         }
@@ -329,6 +342,7 @@ const CreateQuiz = () => {
             const roomCode = Array.from({ length: 6 }, () =>
                 "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
             ).join("");
+
             const supabase = supaRef.current;
             const { data: quiz, error: quizError } = await supabase
                 .from("quizzes")
@@ -336,7 +350,7 @@ const CreateQuiz = () => {
                 .select()
                 .single();
 
-            if (quizError || !quiz) { toastError("Gagal membuat quiz!"); return; }
+            if (quizError || !quiz) throw Error("Gagal menyimpan quiz!");
 
             for (let i = 0; i < questions.length; i++) {
                 const q = questions[i];
@@ -355,7 +369,7 @@ const CreateQuiz = () => {
                     .select()
                     .single();
 
-                if (qError || !dbQuestion) continue;
+                if (qError || !dbQuestion) throw Error("Gagal menyimpan pertanyaan!");
 
                 if (q.type === "multiple_choice" && q.options.length > 0) {
                     const optionsToInsert = q.options.map((opt, j) => ({
@@ -391,12 +405,19 @@ const CreateQuiz = () => {
                 .from("quiz_sessions")
                 .insert({ quiz_id: quiz.id, host_id: user.id, room_code: roomCode, status: "waiting", allowed_skill: powerUpsJson });
 
-            if (sessionError) { toastError("Gagal membuat sesi!"); return; }
+            if (sessionError) {
+                throw Error("Gagal membuat sesi!");
+            }
 
             toastSuccess("Quiz berhasil dibuat!");
             router.push(`/lobby/${roomCode}`);
-        } catch {
-            toastError("Terjadi kesalahan!");
+        } catch (error) {
+            if (error instanceof Error) {
+                toastError(error.message);
+            } else {
+                await updateLog({ type: "quiz", action: `Terjadi kesalahan quiz gagal dipublish: ${error}`, user: profile?.nama_lengkap ?? "uknown", severity: "danger" });
+                toastError("Terjadi kesalahan!")
+            }
         } finally {
             setPublishing(false);
         }

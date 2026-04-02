@@ -3,6 +3,7 @@
 import { AuthError } from "@supabase/supabase-js";
 import { formLoginSchema, formRegisterSchema } from "./formSchema";
 import { createClient } from "@/supabase/server";
+import { Logs } from "@/types/global";
 
 export const formLoginValidation = async (
   prev: unknown,
@@ -42,20 +43,24 @@ export const formLoginValidation = async (
     };
   } catch (error) {
     if (error instanceof AuthError) {
-      // ADD LOG
       await supabase.from("logs").insert({
         type: "security",
         action: `User gagal login: ${error.message}`,
         user: data.nama_lengkap ?? "uknown",
         severity: "danger",
-      });
+      } as Logs);
 
       return {
         message: error.message,
         success: false,
       };
     } else {
-      console.log(error);
+      await supabase.from("logs").insert({
+        type: "security",
+        action: `User gagal login: ${error}`,
+        user: data.nama_lengkap ?? "uknown",
+        severity: "danger",
+      } as Logs);
       return {
         message: "Ada kesalahan sistem!",
         success: false,
@@ -97,7 +102,6 @@ export const formRegisterValidation = async (
 
     if (error) throw error;
 
-    // ADD LOG
     await supabase.from("logs").insert({
       type: "security",
       action: `User berhasil register`,

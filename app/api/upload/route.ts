@@ -58,7 +58,7 @@ export const DELETE = async (req: NextRequest) => {
     await del(url);
     return new Response(JSON.stringify({ message: "File berhasil dihapus" }), {
       status: 200,
-    })
+    });
   } catch (error) {
     console.log(error);
     return new Response(JSON.stringify({ message: "Gagal menghapus file" }), {

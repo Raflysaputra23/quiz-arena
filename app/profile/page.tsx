@@ -12,10 +12,12 @@ import QuizHistory from "@/components/QuizHistory";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { useAdmin } from "@/hooks/useAdmin";
 
 export default function ProfilePage() {
+  const { user, profile, loading: authLoading, updateProfile } = useAuth();
+  const { updateLog } = useAdmin();
   const router = useRouter();
-  const { user, profile, updateLog, loading: authLoading, updateProfile } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState<boolean>(false);
   const [search, setSearch] = useState<string>("");
@@ -38,40 +40,41 @@ export default function ProfilePage() {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || !user) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toastError("Ukuran foto maksimal 5MB");
-      return;
-    }
+    if (!file || !user) throw Error("File / User tidak ditemukan!");
+    if (file.size > 5 * 1024 * 1024) throw Error("Ukuran file maximal 5 MB");
+
     setUploading(true);
     try {
       if (profile?.avatar_url) {
         const res = await fetch(`/api/upload?url=${encodeURIComponent(profile.avatar_url)}`, {
           method: "DELETE"
         });
-        await updateLog({ type: "quiz", action: "Gambar gagal dihapus", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
-        if (res.status !== 200) throw Error("Gagal hapus gambar");
+        const data = await res.json();
+        if (res.status !== 200) throw Error(data?.message ?? "Gambar gagal dihapus");
       }
 
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData
+      });
       const data = await res.json();
-      if (!res.ok) {
-        await updateLog({ type: "quiz", action: "Gagal mengupload gambar", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
-        toastError(data?.message ?? "Gagal mengunggah foto");
-        return;
-      }
+      if (res.status !== 200) throw Error(data?.message ?? "Gagal mengupload gambar");
+
       const { error } = await updateProfile({ avatar_url: data.url });
-      if (error) {
-        toastError("Gagal menyimpan foto profil");
-        return;
-      }
+      if (error) throw Error("Gagal menyimpan foto profil");
+
       await updateLog({ type: "quiz", action: "Berhasil mengupload gambar", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
       toastSuccess("Foto profil diperbarui");
-    } catch {
-      toastError("Gagal mengunggah foto");
+    } catch (error) {
+      if (error instanceof Error) {
+        await updateLog({ type: "quiz", action: error.message, user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+        toastError(error.message);
+      } else {
+        toastError("Terjadi kesalahan saat upload gambar!");
+      }
     } finally {
       setUploading(false);
     }
