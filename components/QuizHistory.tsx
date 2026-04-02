@@ -29,6 +29,7 @@ import { createClient } from "@/supabase/client";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAdmin } from "@/hooks/useAdmin";
 
 interface SessionHistory {
   id: string;
@@ -53,7 +54,8 @@ interface QuizHistory {
 
 const QuizHistory = memo(({ search }: { search: string }) => {
   const router = useRouter();
-  const { user, profile, updateLog } = useAuth();
+  const { user, profile } = useAuth();
+  const { updateLog } = useAdmin();
   const [quizzes, setQuizzes] = useState<QuizHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingStart, setLoadingStart] = useState(false);
@@ -137,44 +139,57 @@ const QuizHistory = memo(({ search }: { search: string }) => {
   }, [user?.id]);
 
   const deleteQuiz = async (id: string) => {
-    const supabase = supaRef.current;
-    const { error } = await supabase.from("quizzes").delete().eq("id", id);
-    if (error) {
-      await updateLog({ type: "quiz", action: "Gagal menghapus quiz", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
-      toastError("Gagal menghapus quiz");
-      return;
+    try {
+      const supabase = supaRef.current;
+      const { error } = await supabase.from("quizzes").delete().eq("id", id);
+      if (error) throw Error(`Gagal menghapus quiz: ${error}`);
+      setQuizzes((prev) => prev.filter((q) => q.id !== id));
+      toastSuccess("Quiz dihapus");
+      await updateLog({ type: "quiz", action: "Berhasil menghapus quiz", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
+    } catch (error) {
+      if (error instanceof Error) {
+        await updateLog({ type: "quiz", action: error.message, user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+        toastError("Gagal menghapus quiz");
+      } else {
+        await updateLog({ type: "quiz", action: `Terjadi kesalahan saat menghapus quiz: ${error}`, user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+        toastError("Terjadi kesalahan saat menghapus quiz");
+      }
     }
-    toastSuccess("Quiz dihapus");
-    await updateLog({ type: "quiz", action: "Berhasil menghapus quiz", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
-    setQuizzes((prev) => prev.filter((q) => q.id !== id));
   };
 
   const startNewSession = async (quizId: string) => {
     if (!user) return;
     setLoadingStart(true);
-    const supabase = supaRef.current;
-    const newCode = Array.from({ length: 6 }, () =>
-      "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
-    ).join("");
 
-    const powerUpsJson = JSON.stringify(selected);
-    const { error } = await supabase.from("quiz_sessions").insert({
-      quiz_id: quizId,
-      host_id: user.id,
-      room_code: newCode,
-      allowed_skill: powerUpsJson,
-      status: "waiting",
-    });
-    await updateLog({ type: "quiz", action: "Berhasil membuat sesi quiz", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
+    try {
+      const supabase = supaRef.current;
+      const newCode = Array.from({ length: 6 }, () =>
+        "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]
+      ).join("");
 
-    if (error) {
-      await updateLog({ type: "quiz", action: "Gagal membuat quiz", user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
-      toastError("Gagal membuat sesi");
+      const powerUpsJson = JSON.stringify(selected);
+      const { error } = await supabase.from("quiz_sessions").insert({
+        quiz_id: quizId,
+        host_id: user.id,
+        room_code: newCode,
+        allowed_skill: powerUpsJson,
+        status: "waiting",
+      });
+
+      if (error) throw Error(`Gagal membuat sesi: ${error}`)
+      await updateLog({ type: "quiz", action: "Berhasil membuat sesi quiz", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
+      router.push(`/lobby/${newCode}`);
+    } catch (error) {
+      if (error instanceof Error) {
+        await updateLog({ type: "quiz", action: error.message, user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+        toastError("Gagal membuat sesi");
+      } else {
+        await updateLog({ type: "quiz", action: `Terjadi kesalahan saat membuat sesi: ${error}`, user: profile?.nama_lengkap ?? "uknown", severity: "danger" })
+        toastError("Terjadi kesalahan saat membuat sesi");
+      }
+    } finally {
       setLoadingStart(false);
-      return;
     }
-    setLoadingStart(false);
-    router.push(`/lobby/${newCode}`);
   };
 
   const viewResults = (roomCode: string) => {
@@ -214,8 +229,6 @@ const QuizHistory = memo(({ search }: { search: string }) => {
   const filtered = useMemo(() => {
     return quizzes.filter(q => q.title.toLowerCase().includes(search.toLowerCase()))
   }, [quizzes, search]);
-
-  console.log(quizzes.length);
 
   return (
     <>
