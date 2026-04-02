@@ -773,7 +773,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                         <span>Soal berikutnya akan muncul otomatis...</span>
                                     </motion.div>
 
-                                    {showBtnNext && 
+                                    {(showBtnNext && isHost) && 
                                     <motion.div
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
@@ -783,7 +783,7 @@ const PlayQuiz = ({ params }: { params: Promise<{ code: string }> }) => {
                                         <p className="text-muted-foreground text-sm">Soal tidak muncul otomatis?</p>
                                         <Button variant={'primary'}
                                             onClick={async () => await nextQuestion()}
-                                            disabled={timeExpired}
+                                            disabled={!timeExpired}
                                             >
                                             Next Question <ArrowRight className="w-4 h-4" />
                                         </Button>
