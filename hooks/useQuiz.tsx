@@ -4,6 +4,7 @@
 import { createClient } from "@/supabase/client";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "./useAuth";
+import { useAdmin } from "./useAdmin";
 
 export type QuestionType = "multiple_choice" | "short_answer";
 
@@ -106,7 +107,7 @@ function loadParticipantFromStorage(): { participant: Participant | null; roomCo
 }
 
 export function QuizProvider({ children }: { children: React.ReactNode }) {
-    const { user, updateLog, profile } = useAuth();
+    const { user } = useAuth();
     const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
     const [currentParticipant, setCurrentParticipantState] = useState<Participant | null>(null);
     const [isHost, setIsHost] = useState(false);
@@ -428,15 +429,13 @@ export function QuizProvider({ children }: { children: React.ReactNode }) {
             .insert({ quiz_id: quizId, host_id: userId, room_code: newCode, status: "waiting" })
             .select()
             .single();
-        
-        await updateLog({ type: "quiz", action: "Berhasil membuat quiz", user: profile?.nama_lengkap ?? "uknown", severity: "info" })
 
         if (error || !data) throw error;
 
         await loadRoomByCode(newCode);
         setIsHost(true);
         return newCode;
-    }, [loadRoomByCode, profile?.nama_lengkap, updateLog]);
+    }, [loadRoomByCode]);
 
     const joinRoom = useCallback(async (code: string, name: string): Promise<boolean> => {
         const supabase = supaRef.current;
