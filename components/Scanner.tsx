@@ -101,7 +101,7 @@ const Scanner = () => {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 glass rounded-2xl p-6 max-w-md mx-auto space-y-4"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 glass rounded-2xl p-6 w-96 max-w-md mx-auto space-y-4"
                 >
                     <Input
                         placeholder="Nama kamu"
@@ -150,7 +150,7 @@ const Scanner = () => {
             )}
 
             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-xl">
-                {lastScan || "Waiting scan..."}
+                {lastScan ? "Scan Berhasil" : "Arahkan kamera ke QrCode QuizArena"}
             </div>
 
         </div>
