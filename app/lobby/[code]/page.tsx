@@ -46,6 +46,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
 
         const interval = setInterval(() => {
             if(!qrRef.current) return;
+            qrRef.current.classList.replace("opacity-0","opacity-100");
             QRCode.toCanvas(qrRef.current, code, {
                 width: 250,
             });
@@ -146,7 +147,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                         </span>
                         <Copy className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                    <QrCode ref={qrRef} className="mx-auto my-4 rounded-lg border-4 border-primary/50"></QrCode>
+                    <QrCode ref={qrRef} className="mx-auto opacity-0 my-4 transition-opacity rounded-lg border-4 border-primary/50"></QrCode>
                     <p className="text-xs text-muted-foreground">Scan QrCode atau klik untuk menyalin • Bagikan ke teman-temanmu!</p>
                 </motion.div>
 
