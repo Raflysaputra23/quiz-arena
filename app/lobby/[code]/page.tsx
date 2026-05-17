@@ -34,6 +34,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
             toastError("Silahkan join lewat form!");
             router.push("/");
         }
+        
     }, [isHost, router, loading]);
 
     useEffect(() => {

@@ -10,7 +10,6 @@ export const POST = async (req: Request) => {
     });
   }
 
-  // validasi
   if (file.size > (5 * 1024 * 1024)) {
     return new Response(
       JSON.stringify({ message: "Ukuran file maksimal 5MB" }),

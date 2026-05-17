@@ -45,7 +45,6 @@ const Results = ({ params }: { params: Promise<{ code: string }> }) => {
     }
   }, [code]);
 
-  // Fire confetti and fanfare
   useEffect(() => {
     (async () => {
       if (currentRoom && !confettiFired) {
