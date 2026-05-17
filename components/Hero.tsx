@@ -190,6 +190,13 @@ const Hero = () => {
                                 className="bg-secondary border-border h-12"
                                 maxLength={20}
                             />
+                            <Button
+                                variant={'primary'}
+                                className="flex-1 group"
+                                onClick={() => router.push("/scan")}
+                            >
+                                Scan
+                            </Button>
                             <div className="flex gap-3">
                                 <Button
                                     variant="ghost"
@@ -206,13 +213,6 @@ const Hero = () => {
                                     disabled={joining}
                                 >
                                     {joining ? <span className="flex items-center gap-2">Bergabung <Loader2 className="animate-spin" /></span> : "Gabung"}
-                                </Button>
-                                <Button
-                                    variant={'primary'}
-                                    className="flex-1 group"
-                                    onClick={() => router.push("/scan")}
-                                >
-                                    Scan
                                 </Button>
                                 <Button
                                     variant="primaryOutliner"

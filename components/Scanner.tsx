@@ -79,7 +79,7 @@ const Scanner = () => {
     }, []);
 
     return (
-        <div className="relative w-screen h-screen overflow-hidden bg-black">
+        <div className="fixed inset-0 bg-black">
 
             <div
                 id="reader"
