@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import LoadingScreen from "@/components/LoadingScreen";
+// import QrCode from "@/components/QrCode";
+import QRCode from "qrcode";
+import QrCode from "@/components/QrCode";
 
 const MODES = [
     { id: "normal", label: "Normal", icon: Sparkles, desc: "Mode standar, jawab sesuai waktu", color: "bg-primary/20 text-primary border-primary/50" },
@@ -24,6 +27,7 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
     const [selectedMode, setSelectedMode] = useState("normal");
     const router = useRouter();
     const initialized = useRef(false);
+    const qrRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
         setHostPlaying(false);
@@ -34,8 +38,22 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
             toastError("Silahkan join lewat form!");
             router.push("/");
         }
-        
+
     }, [isHost, router, loading]);
+
+    useEffect(() => {
+        if (!code) return;
+
+        const interval = setInterval(() => {
+            if(!qrRef.current) return;
+            QRCode.toCanvas(qrRef.current, code, {
+                width: 250,
+            });
+            clearInterval(interval);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [code]);
 
     useEffect(() => {
         if (!code || initialized.current) return;
@@ -128,7 +146,8 @@ const Lobby = ({ params }: { params: Promise<{ code: string }> }) => {
                         </span>
                         <Copy className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                    <p className="text-xs text-muted-foreground">Klik untuk menyalin • Bagikan ke teman-temanmu!</p>
+                    <QrCode ref={qrRef} className="mx-auto my-4 rounded-lg border-4 border-primary/50"></QrCode>
+                    <p className="text-xs text-muted-foreground">Scan QrCode atau klik untuk menyalin • Bagikan ke teman-temanmu!</p>
                 </motion.div>
 
                 <div className="glass rounded-2xl p-6 space-y-4">

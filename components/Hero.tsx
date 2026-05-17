@@ -24,7 +24,7 @@ const Hero = () => {
     const router = useRouter();
 
     useEffect(() => {
-        (async() => {
+        (async () => {
             setCurrentRoom(null);
             exitFullscreen();
             await clearParticipantSession();
@@ -32,7 +32,7 @@ const Hero = () => {
     }, [setCurrentRoom]);
 
     useEffect(() => {
-        if(profile?.nama_lengkap) {
+        if (profile?.nama_lengkap) {
             setName(profile.nama_lengkap);
         }
     }, [profile])
@@ -69,13 +69,13 @@ const Hero = () => {
         { value: "4", label: "Power-Ups" },
     ];
 
-    
+
 
     return (
         <motion.section style={{ opacity: showJoin ? 100 : heroOpacity, scale: showJoin ? 1 : heroScale }} className="relative z-10 py-20 md:py-32 px-4 overflow-hidden">
             {/* Floating Icons */}
             <FloatingIcons />
-            
+
             {/* Decorative elements */}
             <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-20 left-[10%] w-72 h-72 rounded-full bg-primary/5 blur-[120px]" />
@@ -206,6 +206,13 @@ const Hero = () => {
                                     disabled={joining}
                                 >
                                     {joining ? <span className="flex items-center gap-2">Bergabung <Loader2 className="animate-spin" /></span> : "Gabung"}
+                                </Button>
+                                <Button
+                                    variant={'primary'}
+                                    className="flex-1 group"
+                                    onClick={() => router.push("/scan")}
+                                >
+                                    Scan
                                 </Button>
                                 <Button
                                     variant="primaryOutliner"
