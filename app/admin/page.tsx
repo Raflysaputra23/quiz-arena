@@ -3,7 +3,7 @@
 import { ReactElement, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Calendar, CircleSlash2, CircleStar, FileQuestion, History, Key, Logs, RefreshCcw, Search, Settings2, ShieldCheck, Timer, TriangleAlert, User, Zap } from "lucide-react";
+import { ArrowDown, ArrowLeft, Calendar, ChevronDown, CircleSlash2, CircleStar, FileQuestion, History, Key, Logs, RefreshCcw, Search, Settings2, ShieldCheck, Timer, Trash, TriangleAlert, User, Zap } from "lucide-react";
 import { Users, useAdmin } from "@/hooks/useAdmin";
 import LoadingScreen from "@/components/LoadingScreen";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -545,13 +545,13 @@ export default function AdminPage() {
                                         className={`bg-primary/5 border rounded-2xl overflow-hidden transition-all duration-300 border-white/6 hover:border-primary/40`}>
                                         {/* Quiz header */}
                                         <div
-                                            className="flex items-center gap-4 px-5 py-4 cursor-pointer select-none"
+                                            className="flex items-center gap-4 px-5 py-4 cursor-pointer select-none flex-wrap"
                                             onClick={() => setExpandedQuiz(isExpanded ? null : quiz.id)}
                                         >
-                                            <div className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shrink-0">
+                                            <div className="w-12 h-12 hidden rounded-xl bg-gradient-primary md:flex items-center justify-center shrink-0">
                                                 <Zap className="w-6 h-6 text-primary-foreground" />
                                             </div>
-                                            <div className="flex-1 min-w-0">
+                                            <div className="flex-1 shrink-0 min-w-60">
                                                 <div className="flex flex-col items-start mb-2">
                                                     <span className="font-bold text-sm">{quiz.title}</span>
                                                     <p className="text-xs text-muted-foreground md:w-3/4">{quiz.description}</p>
@@ -567,11 +567,11 @@ export default function AdminPage() {
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setSelectedIdQuiz(quiz.id); }}
                                                     className="px-3 py-1.5 border border-destructive/25 bg-destructive/20 text-destructive rounded-lg text-[0.72rem] font-bold hover:bg-destructive/30 transition-all">
-                                                    Hapus
+                                                    <Trash size={18} />
                                                 </button>
-                                                <span className={`text-xs text-slate-600 transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}>
-                                                    ▼
-                                                </span>
+                                                <Button className={`px-3 py-1.5 border border-primary/25 bg-primary/20 text-primary rounded-lg text-[0.72rem] font-bold hover:bg-primary/30 transition-all duration-300 ${isExpanded ? "rotate-180" : ""}`}>
+                                                    <ChevronDown size={18} />
+                                                </Button>
                                             </div>
                                         </div>
 

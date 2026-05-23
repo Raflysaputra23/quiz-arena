@@ -6,7 +6,7 @@ import { useQuiz } from "@/hooks/useQuiz";
 import { useEffect, useState } from "react";
 import { toastError } from "@/lib/toast";
 import { Button } from "./ui/button";
-import { ChevronDown, Eye, Gamepad2, Globe2, Loader2, Plus, Users } from "lucide-react";
+import { ChevronDown, Eye, Gamepad2, Globe2, Loader2, LogIn, Plus, Scan, Users, X } from "lucide-react";
 import { Input } from "./ui/input";
 import FloatingIcons from "./FloatingIcons";
 
@@ -183,26 +183,29 @@ const Hero = () => {
                                 className="text-center text-xl! font-poppins tracking-[0.3em] bg-secondary border-border h-14 uppercase placeholder:text-sm placeholder:tracking-normal"
                                 maxLength={6}
                             />
-                            <Input
-                                placeholder="Nama kamu"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                className="bg-secondary border-border h-12"
-                                maxLength={20}
-                            />
-                            <Button
-                                variant={'primary'}
-                                className="flex-1 group"
-                                onClick={() => router.push("/scan")}
-                            >
-                                Scan
-                            </Button>
+                            <section className="flex items-center gap-2">
+                                <Input
+                                    placeholder="Nama kamu"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="bg-secondary border-border h-12"
+                                    maxLength={20}
+                                />
+                                <Button
+                                    variant={'primary'}
+                                    className="flex-1 group"
+                                    onClick={() => router.push("/scan")}
+                                >
+                                    <Scan />
+                                </Button>
+                            </section>
                             <div className="flex gap-3">
                                 <Button
                                     variant="ghost"
                                     className="flex-1 bg-destructive hover:bg-destructive/80 cursor-pointer"
                                     onClick={() => setShowJoin(false)}
                                 >
+                                    <X />
                                     Batal
                                 </Button>
                                 <Button
@@ -212,6 +215,7 @@ const Hero = () => {
                                     onSubmit={handleJoin}
                                     disabled={joining}
                                 >
+                                    <LogIn />
                                     {joining ? <span className="flex items-center gap-2">Bergabung <Loader2 className="animate-spin" /></span> : "Gabung"}
                                 </Button>
                                 <Button
@@ -222,7 +226,7 @@ const Hero = () => {
                                         router.push(`/spectator/${code.trim().toUpperCase()}`);
                                     }}
                                 >
-                                    <Eye className="w-4 h-4 mr-1" />
+                                    <Eye />
                                     Tonton
                                 </Button>
                             </div>
